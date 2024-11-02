@@ -530,11 +530,16 @@ namespace GamesEngineeringBase
 		{
 			return height;
 		}
-
+		
 		// Checks if a specific key is currently pressed
 		bool keyPressed(int key)
 		{
 			return keys[key];
+		}
+
+		// Check if a specific mouse button is pressed
+		bool Mousepressed(int mousebuttons) {
+			return mouseButtons[mousebuttons];
 		}
 
 		// Gets the mouse X-coordinate relative to the window, accounting for zoom

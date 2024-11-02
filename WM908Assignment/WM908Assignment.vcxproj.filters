@@ -30,4 +30,51 @@
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="Resources\test.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Resources\0.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Resources\1.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Resources\2.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Resources\3.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Resources\4.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Resources\5.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Resources\alpha0.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Resources\alpha1.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Resources\alpha2.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Resources\alpha3.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Resources\alpha4.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Resources\alpha5.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Resources\L.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Resources\L2.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
 </Project>

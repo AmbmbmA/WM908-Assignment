@@ -143,6 +143,23 @@
   <ItemGroup>
     <ClInclude Include="GamesEngineeringBase.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="Resources\0.png" />
+    <Image Include="Resources\1.png" />
+    <Image Include="Resources\2.png" />
+    <Image Include="Resources\3.png" />
+    <Image Include="Resources\4.png" />
+    <Image Include="Resources\5.png" />
+    <Image Include="Resources\alpha0.png" />
+    <Image Include="Resources\alpha1.png" />
+    <Image Include="Resources\alpha2.png" />
+    <Image Include="Resources\alpha3.png" />
+    <Image Include="Resources\alpha4.png" />
+    <Image Include="Resources\alpha5.png" />
+    <Image Include="Resources\L.png" />
+    <Image Include="Resources\L2.png" />
+    <Image Include="Resources\test.png" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
