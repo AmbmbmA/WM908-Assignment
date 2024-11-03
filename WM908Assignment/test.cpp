@@ -15,10 +15,116 @@ const unsigned int INGAMESHOW = 5;
 const unsigned int RESOURCENUM = 9; //default tileset size
 const unsigned int SCALE = 1; //scale of the window,with modified character size and speed
 
+// double linked list template
+template <typename T>
+class node {
+public:
+	T data; // data in the node
+	node* next = nullptr; // ptr to next node
+	node* prev = nullptr; // ptr to previous node
 
-class Character {
+	node(T& _data) : data(_data) {}
+};
+
+template<typename T>
+class DBLL {
 private:
+	node<T>* head = nullptr; // the head of the list
+	node<T>* tail = nullptr; // the tail of the list
+	unsigned int size = 0;
+public:
+	DBLL() {}
 
+	~DBLL() {
+		node<T>* current = head; // start delete from head
+		while (current != nullptr) { //if not null, point the head to next node, delete the original head data
+			node<T>* next = current->next;
+			delete current;
+			current = next;
+		}
+	}
+
+	//add new element at head
+	void addfront(T& _data) {
+		node<T>* newnode = new node<T>(_data);
+		if (head == nullptr) { // empty list
+			head = tail = newnode;
+		}
+		else {
+			head->prev = newnode; //point from origin head to new
+			newnode->next = head; //add new before head
+			head = newnode; // set new as the head
+		}
+		size++;
+	}
+
+	// add new element at tail
+	void addend(T& _data) {
+		node<T>* newnode = new node<T>(_data);
+		if (tail == nullptr) {
+			head = tail = newnode;
+		}
+		else {
+			tail->next = newnode;
+			newnode->prev = tail;
+			tail = newnode;
+		}
+		size++;
+	}
+
+	//remove an element from the list
+	void remove(node<T>* node) {
+		if (node == nullptr) return;
+
+		//last element
+		if (node == head && node == tail) {
+			head = tail = nullptr;
+		}
+		else if (node == head) {
+			head = node->next;
+			if (head != nullptr) head->prev = nullptr;
+		}
+		else if (node == tail) {
+			tail = node->prev;
+			if (tail != nullptr) tail->next = nullptr;
+		}
+		else {
+			node->prev->next = node->next;
+			node->next->prev = node->prev;
+		}
+
+		delete node;
+		size--;
+	}
+
+
+
+	//find node for the data
+	node<T>* find(const T& _data) {
+		node<T>* current = head;
+		while (current != nullptr) {
+			if (current->data == _data) {
+				return current;
+			}
+			current = current->next;
+		}
+		return nullptr;
+	}
+
+	//get size of the list
+	unsigned int getsize() {return size;}
+
+	// Get the head of the list
+	node<T>* gethead() const {return head;}
+
+	// Get the tail of the list
+	node<T>* gettail() const {return tail;}
+
+};
+
+
+// Game character classes
+class Character {
 protected:
 	int x, y; // position of the charactor, left up corner
 	Image sprite; // charactor sprite
@@ -49,8 +155,6 @@ public:
 			}
 		}
 
-
-
 	}
 
 
@@ -75,8 +179,6 @@ public:
 class Player : public Character {
 private:
 	bool Powerup;
-protected:
-
 public:
 	Player(string filename, int _x, int _y, int _health, float _speed) : Character(filename, _x, _y, _health, _speed) {
 		Powerup = false;
@@ -97,25 +199,12 @@ public:
 };
 
 class NPC : public Character {
-private:
-
-protected:
-
 public:
 	NPC(string filename, int _x, int _y, int _health, float _speed) : Character(filename, _x, _y, _health, _speed) {}
-
-	virtual void generate() {
-
-	}
-
 
 };
 
 class Movingnpc : public NPC {
-private:
-
-protected:
-
 public:
 	Movingnpc(string filename, int _x, int _y, int _health, float _speed) : NPC(filename, _x, _y, _health, _speed) {
 
@@ -124,13 +213,11 @@ public:
 
 
 
+
+
 };
 
 class Staticnpc : public NPC {
-private:
-
-protected:
-
 public:
 	Staticnpc(string filename, int _x, int _y, int _health, float _speed) : NPC(filename, _x, _y, _health, _speed) {
 
@@ -141,6 +228,7 @@ public:
 
 };
 
+// NPC spawn class
 class Spawn {
 private:
 
@@ -154,6 +242,8 @@ public:
 
 };
 
+
+// World tile classes
 class tile {
 private:
 	Image sprite;
@@ -314,31 +404,31 @@ public:
 		int p8 = 1;
 
 		if (p >= 0 && p < p0) {
-			tileindex = 0;  
+			tileindex = 0;
 		}
 		else if (p >= p0 && p < p0 + p1) {
-			tileindex = 1;  
+			tileindex = 1;
 		}
 		else if (p >= p0 + p1 && p < p0 + p1 + p2) {
-			tileindex = 2; 
+			tileindex = 2;
 		}
 		else if (p >= p0 + p1 + p2 && p < p0 + p1 + p2 + p3) {
-			tileindex = 3;  
+			tileindex = 3;
 		}
 		else if (p >= p0 + p1 + p2 + p3 && p < p0 + p1 + p2 + p3 + p4) {
-			tileindex = 4;  
+			tileindex = 4;
 		}
 		else if (p >= p0 + p1 + p2 + p3 + p4 && p < p0 + p1 + p2 + p3 + p4 + p5) {
-			tileindex = 5;  
+			tileindex = 5;
 		}
 		else if (p >= p0 + p1 + p2 + p3 + p4 + p5 && p < p0 + p1 + p2 + p3 + p4 + p5 + p6) {
-			tileindex = 6;  
+			tileindex = 6;
 		}
 		else if (p >= p0 + p1 + p2 + p3 + p4 + p5 + p6 && p < p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7) {
-			tileindex = 7;  
+			tileindex = 7;
 		}
 		else if (p >= p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 && p < 100) {
-			tileindex = 8;  
+			tileindex = 8;
 		}
 
 		return tileindex;
@@ -388,6 +478,8 @@ public:
 
 };
 
+
+// In game functions
 void savegame(unsigned int _slot = 1) {
 	ofstream save;
 
@@ -407,7 +499,6 @@ void loadgame(unsigned int _slot = 1) {
 
 	load.close();
 }
-
 
 void WASD_Player_digitmove(Window& canvas, int speed, int& wx, int& wy, float u) {
 	float dx = 0.0f;
@@ -436,7 +527,37 @@ void WASD_Player_digitmove(Window& canvas, int speed, int& wx, int& wy, float u)
 	}
 }
 
+void test() {
+	DBLL<int> l;
+	cout << l.getsize() << endl;
+	int a = 10;
+	int b = 20;
+	int c = 30;
+	l.addfront(a);
+	l.addfront(b);
+	l.addfront(c);
+	cout << l.getsize() << endl;
+	node<int>* n = l.find(b);
+	l.remove(n);
+	cout << l.getsize() << endl;
+
+	cout << l.gethead()->data << endl;
+	cout << l.gettail()->data << endl;
+
+	l.remove(l.gethead());
+	cout << l.gethead()->data << endl;
+
+	cout << l.getsize() << endl;
+	l.remove(l.gettail());
+	cout << l.getsize() << endl;
+
+
+
+}
+
+// main funtion
 int main() {
+	test();
 	srand(time(0));// set seed for random
 	Timer timer;
 	bool run = true; //game loop run
@@ -457,6 +578,11 @@ int main() {
 
 	// creating Player with its initial position, health and speed
 	Player p("Resources/Player" + to_string(SCALE) + ".png", canvas.getWidth() / 2, canvas.getHeight() / 2, 10, 1.5f);
+
+
+	// Random spawn NPC 
+	Spawn s;
+
 
 	// creating MovingNPC with its initial position, health and speed
 	//Movingnpc npcm1("Resources/m1.png", 0, 0, 10, 5);
@@ -549,62 +675,22 @@ int main() {
 	int FPS = overframecount / Game_time;
 	cout << "Average FPS: " << FPS << endl;
 
-	//system("pause");
+	//system("pause"); // prevent auto quit when game is over
 }
 
-// Draw(); 
-//for (unsigned int x = canvas.getMouseInWindowX() - 10; x < canvas.getMouseInWindowX() + 10; x++)
-//	for (unsigned int y = canvas.getMouseInWindowY() - 10; y < canvas.getMouseInWindowY() + 10; y++)
-//		if (x >= 0 && y >= 0 && x < canvas.getWidth() && y < canvas.getHeight())
-//			canvas.draw(x, y, 255, 0, 0);
-
-
-
-//void WASD(Window& canvas, Player& p, float speed, float u, float& dx, float& dy) {
-//	int x = 0; int y = 0;
-//	if (canvas.keyPressed('W')) dy -= speed * u;
-//	if (canvas.keyPressed('S')) dy += speed * u;
-//	if (canvas.keyPressed('A')) dx -= speed * u;
-//	if (canvas.keyPressed('D')) dx += speed * u;
-//	if (canvas.keyPressed('W') && canvas.keyPressed('A')) {
-//		dy += speed * u;
-//		dx += speed * u;
-//		dy -= (speed / 2) * u;
-//		dx -= (speed / 2) * u;
-//	}
-//	if (canvas.keyPressed('W') && canvas.keyPressed('D')) {
-//		dy += speed * u;
-//		dx -= speed * u;
-//		dy -= (speed / 2) * u;
-//		dx += (speed / 2) * u;
-//	}
-//	if (canvas.keyPressed('S') && canvas.keyPressed('A')) {
-//		dy -= speed * u;
-//		dx += speed * u;
-//		dy += (speed / 2) * u;
-//		dx -= (speed / 2) * u;
-//	}
-//	if (canvas.keyPressed('S') && canvas.keyPressed('D')) {
-//		dy -= speed * u;
-//		dx -= speed * u;
-//		dy += (speed / 2) * u;
-//		dx += (speed / 2) * u;
-//	}
+//DoublyLinkedList<ExampleObject> list;
+//list.append(ExampleObject(1, "Object A"));
+//list.append(ExampleObject(2, "Object B"));
+//list.append(ExampleObject(3, "Object C"));
+//list.prepend(ExampleObject(0, "Object D"));
+//list.printList(); // Output: [ID: 0, Name: Object D] [ID: 1, Name: Object A] [ID: 2, Name: Object B] [ID: 3, Name: Object C]
 //
-//	if (dx >= 1) {
-//		p.move(1, 0);
-//		dx = 0;
-//	}
-//	if (dx <= -1) {
-//		p.move(-1, 0);
-//		dx = 0;
-//	}
-//	if (dy >= 1) {
-//		p.move(0, 1);
-//		dy = 0;
-//	}
-//	if (dy <= -1) {
-//		p.move(0, -1);
-//		dy = 0;
-//	}
+//Node<ExampleObject>* node = list.find(ExampleObject(2, "Object B"));
+//if (node != nullptr) {
+//	list.remove(node);
 //}
+//list.printList(); // Output: [ID: 0, Name: Object D] [ID: 1, Name: Object A] [ID: 3, Name: Object C]
+//
+//std::cout << "Size: " << list.getSize() << std::endl; // Output: Size: 3
+//
+//return 0;
