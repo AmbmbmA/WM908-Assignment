@@ -1,6 +1,7 @@
 ﻿#include <iostream>
 #include <fstream>
 #include <cmath>
+#include <ctime>
 using namespace std;
 
 
@@ -8,12 +9,25 @@ using namespace std;
 using namespace GamesEngineeringBase;
 
 
-
-const unsigned int LEVELNUM = 2;
-const unsigned int LEVELTIME = 120; //game time length in second
-const unsigned int INGAMESHOW = 5;
+//game const
+const unsigned int LEVELNUM = 2; // total level number
+const unsigned int LEVELTIME[LEVELNUM] = { 120,120 }; //level time length in second
+const unsigned int INGAMESHOW = 5; //time gap for in game show
 const unsigned int RESOURCENUM = 9; //default tileset size
 const unsigned int SCALE = 1; //scale of the window,with modified character size and speed
+
+//Spawn const
+const unsigned int INMARGIN = 100; // range for the npc to spawn outside the cancas
+const unsigned int OUTMARGIN = 400; // range for the npc to spawn outside the cancas
+const float SPAWNGAP = 3.0f; //initial spawn time gap
+const float SPAWNACC = 0.01f; // spawn accelerate gap
+const float MINSPAWNGAP = 0.1f; // MIN spawn gap
+
+//character const
+const unsigned int PLAYERMAXHEALTH[1] = { 10 };
+const float PLAYERSPEED[1] = { 1.5f };
+const unsigned int NPCMAXHEALTH[4] = { 10 , 10 , 10 , 10 };
+const float NPCSPEED[4] = { 1.0f , 2.0f , 1.5f , 0.0f };
 
 // double linked list template
 template <typename T>
@@ -112,15 +126,16 @@ public:
 	}
 
 	//get size of the list
-	unsigned int getsize() {return size;}
+	unsigned int getsize() { return size; }
 
 	// Get the head of the list
-	node<T>* gethead() const {return head;}
+	node<T>* gethead() const { return head; }
 
 	// Get the tail of the list
-	node<T>* gettail() const {return tail;}
+	node<T>* gettail() const { return tail; }
 
 };
+
 
 
 // Game character classes
@@ -130,16 +145,13 @@ protected:
 	Image sprite; // charactor sprite
 
 public:
-	int health;
-	float speed;
+
 
 	//constructor, load the character sprite at given position and store basic character info
-	Character(string filename, int _x, int _y, int _health, float _speed) {
+	Character(string filename, int _x, int _y) {
 		sprite.load(filename);
 		x = _x - sprite.width / 2;
 		y = _y - sprite.height / 2;
-		health = _health;
-		speed = _speed;
 
 	}
 
@@ -157,18 +169,8 @@ public:
 
 	}
 
-
-	// update health when take demage
-	virtual void takedemage(int demage) {
-		health -= demage;
-		if (health < 0) health = 0;
-	}
-
-	// pure virtual method for moving, to be defined for different characters
-	virtual void move(int, int) {}
-
-	// destructor, virtual because derived class object is deleted through a base class pointer, the destructor of the derived class is called, preventing resource leaks.
-	//virtual ~Character() {}
+	int getX() { return x; }
+	int getY() { return y; }
 
 	// pure virtual method for collision, to be defined for different characters
 	//virtual bool collision(){}
@@ -177,12 +179,15 @@ public:
 };
 
 class Player : public Character {
-private:
-	bool Powerup;
 public:
-	Player(string filename, int _x, int _y, int _health, float _speed) : Character(filename, _x, _y, _health, _speed) {
+	int playerindex;
+	int health;
+	float speed;
+	bool Powerup;
+	Player(string filename, int _x, int _y, int _playerindex) : Character(filename, _x, _y), playerindex(_playerindex){
 		Powerup = false;
-
+		health = PLAYERMAXHEALTH[playerindex];
+		speed = PLAYERSPEED[playerindex];
 	}
 
 	void shoot() {
@@ -200,47 +205,134 @@ public:
 
 class NPC : public Character {
 public:
-	NPC(string filename, int _x, int _y, int _health, float _speed) : Character(filename, _x, _y, _health, _speed) {}
-
-};
-
-class Movingnpc : public NPC {
-public:
-	Movingnpc(string filename, int _x, int _y, int _health, float _speed) : NPC(filename, _x, _y, _health, _speed) {
-
+	int npcindex;
+	int health;
+	float speed;
+	NPC(string filename, int _x, int _y, int _npcindex,Player& p) : Character(filename, _x, _y), npcindex(_npcindex) {
+		health = NPCMAXHEALTH[npcindex];
+		speed = NPCSPEED[npcindex];
 	}
 
+	void update() {
 
-
-
-
-
-};
-
-class Staticnpc : public NPC {
-public:
-	Staticnpc(string filename, int _x, int _y, int _health, float _speed) : NPC(filename, _x, _y, _health, _speed) {
 
 	}
-
-
-	void move() {}
-
 };
 
 // NPC spawn class
 class Spawn {
 private:
+	DBLL<NPC*> npc;
+	float timeElapsed = 0.0f; // time passed since last generate
+	float timeThreshold = SPAWNGAP; // generate time gap
 
-protected:
+	int randomnpcindex() {
+
+		int p = rand() % 100;//random number to control percentagae of npc
+		int npcindex = 0;
+		//probability of index
+		int p0 = 50;
+		int p1 = 20;
+		int p2 = 20;
+		int p3 = 10;
+
+		if (p >= 0 && p < p0) {
+			npcindex = 0;
+		}
+		else if (p >= p0 && p < p0 + p1) {
+			npcindex = 1;
+		}
+		else if (p >= p0 + p1 && p < p0 + p1 + p2) {
+			npcindex = 2;
+		}
+		else if (p >= p0 + p1 + p2 && p < 100) {
+			npcindex = 3;
+		}
+
+		return npcindex;
+	}
+
+	void generate(Window& canvas, Player& p,float dt) {
+		timeElapsed += dt;
+
+		if (timeElapsed >= timeThreshold) {
+			//random position
+			int randomX, randomY;
+			randomX = rand() % (canvas.getWidth() + 2 * OUTMARGIN) - OUTMARGIN; // X [-OUTMARGIN,width+OUTMAGIN]
+			if (randomX < -INMARGIN || randomX > canvas.getWidth() + INMARGIN) { //x ouside INMARGIN
+				randomY = rand() % (canvas.getHeight() + 2 * OUTMARGIN) - OUTMARGIN; // y [-OUTMARGIN,height+OUTMAGIN]
+			}
+			else { // x inside canvas
+				if (rand() % 2 == 0) { //50% above
+					randomY = -INMARGIN - rand() % (OUTMARGIN - INMARGIN); //y [-INMARGIN,-OUTMARGIN]
+				}
+				else { //50% below
+					randomY = canvas.getHeight() + INMARGIN + rand() % (OUTMARGIN - INMARGIN);//y [height + INMARGIN,height + OUTMARGIN]
+				}
+			}
+
+			// random npc 
+			int npcindex = randomnpcindex();
+			string filename = "npc" + to_string(npcindex) + ".png";
+
+			//create npc
+			NPC* n = new NPC(filename, randomX, randomY, npcindex,p);
+			npc.addend(n);
+
+			timeElapsed = 0.0f; //reset
+			if (timeThreshold != MINSPAWNGAP) { // once reach limit, do not change
+				timeThreshold -= SPAWNACC; // accelerate spawn rate
+				if (timeThreshold <= MINSPAWNGAP) {
+					timeThreshold = MINSPAWNGAP;// restrict the min gap
+				}
+			}
+		}
+
+	}
+
+	void checkdelete(Window& canvas, node<NPC*>* node) {
+		if (node->data->getX() > canvas.getWidth() + OUTMARGIN ||
+			node->data->getX() < canvas.getWidth() - OUTMARGIN ||
+			node->data->getY() > canvas.getHeight() + OUTMARGIN ||
+			node->data->getY() < canvas.getHeight() - OUTMARGIN
+			) {
+			npc.remove(node);
+			cout << "One NPC (Type" << node->data->npcindex << ") has been destroyed because too far away." << endl;
+		}
+	}
 
 public:
-	Spawn() {
+	Spawn() {}
 
+	~Spawn() { npc.~DBLL(); } // free the double linked list
+
+	// update position of npc
+	void update(Window& canvas, Player& p,float dt,float _u) {
+		generate(canvas,p,dt);
+
+		node<NPC*>* current = npc.gethead();
+		while (current != nullptr) {
+			current->data->update();
+			node<NPC*>* next = current->next;
+			checkdelete(canvas, current);
+			current = next;
+		}
+
+
+	}
+
+	// draw npc on canvas
+	void draw(Window& canvas) {
+		node<NPC*>* current = npc.gethead();
+		while (current != nullptr) { // all npc stored in the BDLL
+			current->data->draw(canvas);
+			current = current->next;
+		}
 	}
 
 
 };
+
 
 
 // World tile classes
@@ -331,7 +423,7 @@ public:
 
 		for (unsigned int i = 0; i < worldsizeX; i++) {
 			for (unsigned int j = 0; j < worldsizeY; j++) {
-				mapseed[i][j] = randomindex();
+				mapseed[i][j] = randomtileindex();
 			}
 		}
 
@@ -388,7 +480,7 @@ public:
 		savemap.close();
 	}
 
-	int randomindex() {
+	int randomtileindex() {
 
 		int p = rand() % 100;//random number to control percentagae of tile
 		int tileindex = 0;
@@ -479,6 +571,7 @@ public:
 };
 
 
+
 // In game functions
 void savegame(unsigned int _slot = 1) {
 	ofstream save;
@@ -555,6 +648,8 @@ void test() {
 
 }
 
+
+
 // main funtion
 int main() {
 	test();
@@ -577,7 +672,7 @@ int main() {
 
 
 	// creating Player with its initial position, health and speed
-	Player p("Resources/Player" + to_string(SCALE) + ".png", canvas.getWidth() / 2, canvas.getHeight() / 2, 10, 1.5f);
+	Player p("Resources/Player" + to_string(SCALE) + ".png", canvas.getWidth() / 2, canvas.getHeight() / 2,0);
 
 
 	// Random spawn NPC 
@@ -660,7 +755,7 @@ int main() {
 
 
 		// for average FPS
-		if (Game_time >= LEVELTIME) {
+		if (Game_time >= LEVELTIME[0]) {
 			break;
 		}
 
@@ -677,20 +772,3 @@ int main() {
 
 	//system("pause"); // prevent auto quit when game is over
 }
-
-//DoublyLinkedList<ExampleObject> list;
-//list.append(ExampleObject(1, "Object A"));
-//list.append(ExampleObject(2, "Object B"));
-//list.append(ExampleObject(3, "Object C"));
-//list.prepend(ExampleObject(0, "Object D"));
-//list.printList(); // Output: [ID: 0, Name: Object D] [ID: 1, Name: Object A] [ID: 2, Name: Object B] [ID: 3, Name: Object C]
-//
-//Node<ExampleObject>* node = list.find(ExampleObject(2, "Object B"));
-//if (node != nullptr) {
-//	list.remove(node);
-//}
-//list.printList(); // Output: [ID: 0, Name: Object D] [ID: 1, Name: Object A] [ID: 3, Name: Object C]
-//
-//std::cout << "Size: " << list.getSize() << std::endl; // Output: Size: 3
-//
-//return 0;
