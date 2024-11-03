@@ -7,9 +7,13 @@ using namespace std;
 #include "GamesEngineeringBase.h"
 using namespace GamesEngineeringBase;
 
-const unsigned int GAMETIME = 6; //game time length in second
-const unsigned int DSIZE = 24; //default tileset size
-const unsigned int INGAMESHOW = 30;
+
+
+const unsigned int LEVELNUM = 2;
+const unsigned int LEVELTIME = 120; //game time length in second
+const unsigned int INGAMESHOW = 5;
+const unsigned int RESOURCENUM = 9; //default tileset size
+const unsigned int SCALE = 1; //scale of the window,with modified character size and speed
 
 
 class Character {
@@ -185,18 +189,8 @@ private:
 public:
 	unsigned int tilenum;
 	tileset() {
-		tilenum = DSIZE;
-		tiles = new tile[DSIZE];
-	}
-	tileset(unsigned int _tilenum) {
-		tilenum = _tilenum;
-		tiles = new tile[tilenum];
-	}
-
-	void resettileset(unsigned int _tilenum) {
-		if (tiles != nullptr) delete[] tiles;
-		tilenum = _tilenum;
-		tiles = new tile[tilenum];
+		tilenum = RESOURCENUM;
+		tiles = new tile[RESOURCENUM];
 	}
 
 	~tileset() {
@@ -226,14 +220,12 @@ private:
 	bool infinitemap = true; //  to decide weather it is an infinite map
 	unsigned int maxrepeat = 0;
 	string tiletype;
-	unsigned int tilenum;
 public:
 
-	world(unsigned int _worldsizeX, unsigned int _worldsizeY, string _tiletype = "", unsigned int _tilenum = DSIZE, unsigned int _max = 0) {
+	world(unsigned int _worldsizeX, unsigned int _worldsizeY, string _tiletype = "", unsigned int _max = 0) {
 		worldsizeX = _worldsizeX;
 		worldsizeY = _worldsizeY;
 		tiletype = _tiletype;
-		tilenum = _tilenum;
 
 		if (_max > 0) { // if not infinite then change the bool to decide which route it goes later
 			maxrepeat = _max;
@@ -245,13 +237,11 @@ public:
 			mapseed[i] = new unsigned int[worldsizeY];
 		}
 
-		if (tilenum != DSIZE) tiles.resettileset(tilenum);
-
 		tiles.load(tiletype);
 
 		for (unsigned int i = 0; i < worldsizeX; i++) {
 			for (unsigned int j = 0; j < worldsizeY; j++) {
-				mapseed[i][j] = rand() % tiles.tilenum;
+				mapseed[i][j] = randomindex();
 			}
 		}
 
@@ -264,11 +254,8 @@ public:
 		loadmap.open(filename, ios::in);
 
 		loadmap >> tiletype;
-		loadmap >> tilenum;
 
-		if (tilenum != DSIZE) tiles.resettileset(tilenum);
 		tiles.load(tiletype);
-
 
 		loadmap >> worldsizeX >> worldsizeY;
 
@@ -298,7 +285,7 @@ public:
 		ofstream savemap;
 		savemap.open(filename, ios::out);
 
-		savemap << tiletype << "\t" << tilenum << endl;
+		savemap << tiletype << endl;
 		savemap << worldsizeX << "\t" << worldsizeY << endl;
 
 		for (unsigned int j = 0; j < worldsizeY; j++) { //change for loop order to give a clear view of map
@@ -309,6 +296,52 @@ public:
 		}
 
 		savemap.close();
+	}
+
+	int randomindex() {
+
+		int p = rand() % 100;//random number to control percentagae of tile
+		int tileindex = 0;
+		//probability of index
+		int p0 = 85;
+		int p1 = 3;
+		int p2 = 2;
+		int p3 = 2;
+		int p4 = 1;
+		int p5 = 3;
+		int p6 = 2;
+		int p7 = 1;
+		int p8 = 1;
+
+		if (p >= 0 && p < p0) {
+			tileindex = 0;
+		}
+		else if (p >= p0 && p < p0 + p1) {
+			tileindex = 1;
+		}
+		else if (p >= p0 + p1 && p < p0 + p1 + p2) {
+			tileindex = 2;
+		}
+		else if (p >= p0 + p1 + p2 && p < p0 + p1 + p2 + p3) {
+			tileindex = 3;
+		}
+		else if (p >= p0 + p1 + p2 + p3 && p < p0 + p1 + p2 + p3 + p4) {
+			tileindex = 4;
+		}
+		else if (p >= p0 + p1 + p2 + p3 + p4 && p < p0 + p1 + p2 + p3 + p4 + p5) {
+			tileindex = 5;
+		}
+		else if (p >= p0 + p1 + p2 + p3 + p4 + p5 && p < p0 + p1 + p2 + p3 + p4 + p5 + p6) {
+			tileindex = 6;
+		}
+		else if (p >= p0 + p1 + p2 + p3 + p4 + p5 + p6 && p < p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7) {
+			tileindex = 7;
+		}
+		else if (p >= p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 && p < 100) {
+			tileindex = 8;
+		}
+
+		return tileindex;
 	}
 
 	void draw(Window& canvas, int wx, int wy) {
@@ -355,64 +388,26 @@ public:
 
 };
 
-void savegame() {
+void savegame(unsigned int _slot = 1) {
+	ofstream save;
 
+	save.open("save" + to_string(_slot), ios::out);
+
+
+
+	save.close();
 
 }
 
-void loadgame() {
+void loadgame(unsigned int _slot = 1) {
+	ifstream load;
+
+	load.open("save" + to_string(_slot), ios::in);
 
 
+	load.close();
 }
 
-void WASD(Window& canvas, Player& p, float speed, float u, float& dx, float& dy) {
-	int x = 0; int y = 0;
-	if (canvas.keyPressed('W')) dy -= speed * u;
-	if (canvas.keyPressed('S')) dy += speed * u;
-	if (canvas.keyPressed('A')) dx -= speed * u;
-	if (canvas.keyPressed('D')) dx += speed * u;
-	if (canvas.keyPressed('W') && canvas.keyPressed('A')) {
-		dy += speed * u;
-		dx += speed * u;
-		dy -= (speed / 2) * u;
-		dx -= (speed / 2) * u;
-	}
-	if (canvas.keyPressed('W') && canvas.keyPressed('D')) {
-		dy += speed * u;
-		dx -= speed * u;
-		dy -= (speed / 2) * u;
-		dx += (speed / 2) * u;
-	}
-	if (canvas.keyPressed('S') && canvas.keyPressed('A')) {
-		dy -= speed * u;
-		dx += speed * u;
-		dy += (speed / 2) * u;
-		dx -= (speed / 2) * u;
-	}
-	if (canvas.keyPressed('S') && canvas.keyPressed('D')) {
-		dy -= speed * u;
-		dx -= speed * u;
-		dy += (speed / 2) * u;
-		dx += (speed / 2) * u;
-	}
-
-	if (dx >= 1) {
-		p.move(1, 0);
-		dx = 0;
-	}
-	if (dx <= -1) {
-		p.move(-1, 0);
-		dx = 0;
-	}
-	if (dy >= 1) {
-		p.move(0, 1);
-		dy = 0;
-	}
-	if (dy <= -1) {
-		p.move(0, -1);
-		dy = 0;
-	}
-}
 
 void WASD_Player_digitmove(Window& canvas, int speed, int& wx, int& wy, float u) {
 	float dx = 0.0f;
@@ -442,26 +437,26 @@ void WASD_Player_digitmove(Window& canvas, int speed, int& wx, int& wy, float u)
 }
 
 int main() {
-
 	srand(time(0));// set seed for random
+	Timer timer;
+	bool run = true; //game loop run
 
 	// draw the canvas
 	Window canvas;
-	int scale = 2;
-	canvas.create(1024 * scale, 768 * scale, "WM908 Assignment u2064320");
+	canvas.create(1024 * SCALE, 768 * SCALE, "WM908 Assignment u2064320");
 
-	bool run = true; //game loop run
+	// Create the world map
 
-	Timer timer;
+	//from file
+	//world w("world.txt");
 
+	//random
+	world w(1000, 1000); // creating world map
+	w.savemapseed("world.txt"); // save the seed
 
-	//world w("test.txt");
-
-	world w(10, 10, "testtile"); // creating world map
-	w.savemapseed("test.txt");
 
 	// creating Player with its initial position, health and speed
-	Player p("Resources/Player.png", canvas.getWidth() / 2, canvas.getHeight() / 2, 10, 3);
+	Player p("Resources/Player" + to_string(SCALE) + ".png", canvas.getWidth() / 2, canvas.getHeight() / 2, 10, 1.5f);
 
 	// creating MovingNPC with its initial position, health and speed
 	//Movingnpc npcm1("Resources/m1.png", 0, 0, 10, 5);
@@ -482,20 +477,18 @@ int main() {
 	int overframecount = 0;
 	float Game_time = 0.0f;
 
-	int wx = 0; int wy = 0;	// world position(left up corner)
+	// world position(left up corner)
+	int wx = 0; int wy = 0;
+
 	// main game loop
 	while (run)
 	{
 		canvas.checkInput(); // detect the input
-
 		canvas.clear(); //clear this frame for next frame to be drawn
 
-		//canvas.clipMouseToWindow(); // fix the mouse within the canvas
 
 		float dt = timer.dt(); //get dt value
-		//float u = 1;
-		//float u = 1000 * dt;
-		float u = 1 + 1.5 * sin(100 * dt); //create a unit for moving
+		float u = 1 + 2 * sin(100 * dt); //create a unit for moving
 		//this value would reflect the change of dt so smoother
 		//use sin in order to restrict the value oscillate around 1 based on dt value, and for all dt [0,1],this would work
 		//times 10 to increase the weigt of dt value to make it smoother
@@ -506,7 +499,7 @@ int main() {
 		if (canvas.keyPressed(VK_ESCAPE)) break;  // ESC to quit the game
 
 		//WASD Player move ,set speed with consider of the scale
-		WASD_Player_digitmove(canvas, p.speed * scale, wx, wy, u);
+		WASD_Player_digitmove(canvas, p.speed * SCALE * SCALE, wx, wy, u);
 
 
 		// draw the frame
@@ -541,7 +534,7 @@ int main() {
 
 
 		// for average FPS
-		if (Game_time >= GAMETIME) {
+		if (Game_time >= LEVELTIME) {
 			break;
 		}
 
@@ -556,7 +549,7 @@ int main() {
 	int FPS = overframecount / Game_time;
 	cout << "Average FPS: " << FPS << endl;
 
-	system("pause");
+	//system("pause");
 }
 
 // Draw(); 
@@ -564,3 +557,54 @@ int main() {
 //	for (unsigned int y = canvas.getMouseInWindowY() - 10; y < canvas.getMouseInWindowY() + 10; y++)
 //		if (x >= 0 && y >= 0 && x < canvas.getWidth() && y < canvas.getHeight())
 //			canvas.draw(x, y, 255, 0, 0);
+
+
+
+//void WASD(Window& canvas, Player& p, float speed, float u, float& dx, float& dy) {
+//	int x = 0; int y = 0;
+//	if (canvas.keyPressed('W')) dy -= speed * u;
+//	if (canvas.keyPressed('S')) dy += speed * u;
+//	if (canvas.keyPressed('A')) dx -= speed * u;
+//	if (canvas.keyPressed('D')) dx += speed * u;
+//	if (canvas.keyPressed('W') && canvas.keyPressed('A')) {
+//		dy += speed * u;
+//		dx += speed * u;
+//		dy -= (speed / 2) * u;
+//		dx -= (speed / 2) * u;
+//	}
+//	if (canvas.keyPressed('W') && canvas.keyPressed('D')) {
+//		dy += speed * u;
+//		dx -= speed * u;
+//		dy -= (speed / 2) * u;
+//		dx += (speed / 2) * u;
+//	}
+//	if (canvas.keyPressed('S') && canvas.keyPressed('A')) {
+//		dy -= speed * u;
+//		dx += speed * u;
+//		dy += (speed / 2) * u;
+//		dx -= (speed / 2) * u;
+//	}
+//	if (canvas.keyPressed('S') && canvas.keyPressed('D')) {
+//		dy -= speed * u;
+//		dx -= speed * u;
+//		dy += (speed / 2) * u;
+//		dx += (speed / 2) * u;
+//	}
+//
+//	if (dx >= 1) {
+//		p.move(1, 0);
+//		dx = 0;
+//	}
+//	if (dx <= -1) {
+//		p.move(-1, 0);
+//		dx = 0;
+//	}
+//	if (dy >= 1) {
+//		p.move(0, 1);
+//		dy = 0;
+//	}
+//	if (dy <= -1) {
+//		p.move(0, -1);
+//		dy = 0;
+//	}
+//}
