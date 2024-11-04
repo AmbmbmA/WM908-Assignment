@@ -14,20 +14,20 @@ const unsigned int LEVELNUM = 2; // total level number
 const unsigned int LEVELTIME[LEVELNUM] = { 120,120 }; //level time length in second
 const unsigned int INGAMESHOW = 5; //time gap for in game show
 const unsigned int RESOURCENUM = 9; //default tileset size
-const unsigned int SCALE = 1; //scale of the window,with modified character size and speed
+const float SCALE = 1; //scale of the window,with modified character size and speed
 
 //Spawn const
 const int INMARGIN = 100; // range for the npc to spawn outside the cancas
-const int OUTMARGIN = 1000; // range for the npc to spawn outside the cancas
+const int OUTMARGIN = 2000; // range for the npc to spawn outside the cancas
 const float SPAWNGAP = 3.0f; //initial spawn time gap
 const float SPAWNACC = 0.2f; // spawn accelerate gap
 const float MINSPAWNGAP = 0.5f; // MIN spawn gap
 
 //character const
 const unsigned int PLAYERMAXHEALTH[1] = { 10 };
-const float PLAYERSPEED[1] = { 55 };
+const float PLAYERSPEED[1] = { 65 };
 const unsigned int NPCMAXHEALTH[4] = { 10 , 10 , 10 , 10 };
-const float NPCSPEED[4] = { 60 , 50 , 45 , 0 };
+const float NPCSPEED[4] = { 55 , 50 , 40 , 0 };
 
 // double linked list template
 template <typename T>
@@ -136,13 +136,11 @@ public:
 
 };
 
-
-
 // Game character classes
 class Character {
 protected:
-	int x, y; // position of the charactor, left up corner
 	Image sprite; // charactor sprite
+	int x, y; // position of the charactor, left up corner
 public:
 
 
@@ -164,17 +162,25 @@ public:
 				}
 			}
 		}
-
 	}
 
 
+	bool collisionpoint(int checkx, int checky) {
+		for (unsigned int i = x; i < x + sprite.width; i++) {
+			for (unsigned int j = y; j < y + sprite.height; j++) {
+				if (sprite.alphaAt(i, j) > 200) {
+					return  true;
+				}
+			}
+		}
+	}
 
-	// pure virtual method for collision, to be defined for different characters
-	//virtual bool collision(){}
+	int getX() { return x; }
+	int getY() { return y; }
+	Image getsprite() { return sprite; }
 
 
 };
-
 
 class Player : public Character {
 public:
@@ -196,10 +202,35 @@ public:
 
 	void update(Window& canvas, int& wx, int& wy, float u) {
 
-		if (canvas.keyPressed('W')) dy -= speed * 0.01 * u;
-		if (canvas.keyPressed('S')) dy += speed * 0.01 * u;
-		if (canvas.keyPressed('A')) dx -= speed * 0.01 * u;
-		if (canvas.keyPressed('D')) dx += speed * 0.01 * u;
+		if (canvas.keyPressed('W') && canvas.keyPressed('A')) { //left above
+			dy -= speed * 0.01 * u * sqrt(2) / 2;
+			dx -= speed * 0.01 * u * sqrt(2) / 2;
+		}
+		else if (canvas.keyPressed('W') && canvas.keyPressed('D')) { // right above
+			dy -= speed * 0.01 * u * sqrt(2) / 2;
+			dx += speed * 0.01 * u * sqrt(2) / 2;
+
+		}
+		else if (canvas.keyPressed('S') && canvas.keyPressed('A')) { // left bottom
+			dy += speed * 0.01 * u * sqrt(2) / 2;
+			dx -= speed * 0.01 * u * sqrt(2) / 2;
+		}
+		else if (canvas.keyPressed('S') && canvas.keyPressed('D')) { // right bottom
+			dy += speed * 0.01 * u * sqrt(2) / 2;
+			dx += speed * 0.01 * u * sqrt(2) / 2;
+		}
+		else if (canvas.keyPressed('W')) { //above
+			dy -= speed * 0.01 * u;
+		}
+		else if (canvas.keyPressed('S')) { //bottom
+			dy += speed * 0.01 * u;
+		}
+		else if (canvas.keyPressed('A')) { //left
+			dx -= speed * 0.01 * u;
+		}
+		else if (canvas.keyPressed('D')) { //right
+			dx += speed * 0.01 * u;
+		}
 
 		if (dx >= 3) {
 			wx += 3;
@@ -219,8 +250,13 @@ public:
 		}
 	}
 
-	int getX() { return cx; }
-	int getY() { return cy; }
+	int getcX() { return cx; }
+	int getcY() { return cy; }
+
+	bool collision(Window& canvas, DBLL<NPC*> npc, Player& p, int wx, int wy) {
+
+	}
+
 
 	void shoot() {
 
@@ -236,8 +272,8 @@ class NPC : public Character {
 private:
 
 public:
-	float dx = 0; float dy = 0;
 	int cx, cy;
+	float dx = 0; float dy = 0;
 	int wxi, wyi;
 
 	int npcindex;
@@ -254,8 +290,8 @@ public:
 		wyi = cy + wy;
 	}
 
-	int getX() { return cx; }
-	int getY() { return cy; }
+	int getcX() { return cx; }
+	int getcY() { return cy; }
 
 	void update(Window& canvas, Player& p, int wx, int wy, float u) {
 		x += wxi - wx - cx;
@@ -263,7 +299,7 @@ public:
 		cx = wxi - wx;
 		cy = wyi - wy;
 
-		int px = p.getX(); int py = p.getY(); //  player world position
+		int px = p.getcX(); int py = p.getcY(); //  player world position
 		int difx = px - cx;
 		int dify = py - cy;
 		float length = sqrt(difx * difx + dify * dify);
@@ -390,10 +426,10 @@ public:
 		int upb = -OUTMARGIN;
 		//cout << "check:"<<node->data->getX() << "\t" << node->data->getY() << endl;
 		//cout << rightb << "\t" << leftb << "\t" << bottomb << "\t" << upb << endl;
-		if (node->data->getX() > rightb ||
-			node->data->getX() < leftb ||
-			node->data->getY() > bottomb ||
-			node->data->getY() < upb) {
+		if (node->data->getcX() > rightb ||
+			node->data->getcX() < leftb ||
+			node->data->getcY() > bottomb ||
+			node->data->getcY() < upb) {
 			cout << "One NPC (Type" << node->data->npcindex << ") has been destroyed because too far away." << endl;
 			npc.remove(node);
 		}
@@ -429,8 +465,6 @@ public:
 
 
 };
-
-
 
 // World tile classes
 class tile {
@@ -664,7 +698,30 @@ public:
 
 	}
 
+	bool collisionplayer (Window& canvas, Player& p, int wx, int wy){
+		bool col = false;
+		// get size of the tile
+		int tilewidth = tiles[0].getwidth(); 
+		int tileheight = tiles[0].getheight(); 
 
+		// get size of the sprite to be detect
+		int detectwidth = p.getsprite().width;
+		int detectheight = p.getsprite().height;
+		int offsetx = p.getX();
+		int offsety = p.getY();
+
+		// locate the tile to start and end the detect
+		int X = (wx + offsetx) / tilewidth;
+		int Y = (wy + offsety) / tileheight;
+		int endX = (wx + offsetx + detectwidth) / tilewidth;
+		int endY = (wy + offsety + detectheight) / tilewidth;
+
+		// check for all tile
+		// check if obstacle
+		
+
+		return col;
+	}
 };
 
 
@@ -699,6 +756,7 @@ int main() {
 	// draw the canvas
 	Window canvas;
 	canvas.create(1024 * SCALE, 768 * SCALE, "WM908 Assignment u2064320");
+	//canvas.create(1536 * SCALE, 1152 * SCALE, "WM908 Assignment u2064320");//1.5
 
 	// Create the world map
 
@@ -711,7 +769,7 @@ int main() {
 
 
 	// creating Player with its initial position, health and speed
-	Player p("Resources/Player" + to_string(SCALE) + ".png", canvas.getWidth() / 2, canvas.getHeight() / 2, 0);
+	Player p("Resources/Player1.png", canvas.getWidth() / 2, canvas.getHeight() / 2, 0);
 
 
 	// Random spawn NPC 
