@@ -17,17 +17,17 @@ const unsigned int RESOURCENUM = 9; //default tileset size
 const unsigned int SCALE = 1; //scale of the window,with modified character size and speed
 
 //Spawn const
-const unsigned int INMARGIN = 100; // range for the npc to spawn outside the cancas
-const unsigned int OUTMARGIN = 400; // range for the npc to spawn outside the cancas
+const int INMARGIN = 100; // range for the npc to spawn outside the cancas
+const int OUTMARGIN = 1000; // range for the npc to spawn outside the cancas
 const float SPAWNGAP = 3.0f; //initial spawn time gap
-const float SPAWNACC = 0.01f; // spawn accelerate gap
-const float MINSPAWNGAP = 0.1f; // MIN spawn gap
+const float SPAWNACC = 0.2f; // spawn accelerate gap
+const float MINSPAWNGAP = 0.5f; // MIN spawn gap
 
 //character const
 const unsigned int PLAYERMAXHEALTH[1] = { 10 };
-const float PLAYERSPEED[1] = { 1.5f };
+const float PLAYERSPEED[1] = { 55 };
 const unsigned int NPCMAXHEALTH[4] = { 10 , 10 , 10 , 10 };
-const float NPCSPEED[4] = { 1.0f , 2.0f , 1.5f , 0.0f };
+const float NPCSPEED[4] = { 60 , 50 , 45 , 0 };
 
 // double linked list template
 template <typename T>
@@ -143,7 +143,6 @@ class Character {
 protected:
 	int x, y; // position of the charactor, left up corner
 	Image sprite; // charactor sprite
-
 public:
 
 
@@ -152,7 +151,6 @@ public:
 		sprite.load(filename);
 		x = _x - sprite.width / 2;
 		y = _y - sprite.height / 2;
-
 	}
 
 	void draw(Window& canvas) {
@@ -169,8 +167,7 @@ public:
 
 	}
 
-	int getX() { return x; }
-	int getY() { return y; }
+
 
 	// pure virtual method for collision, to be defined for different characters
 	//virtual bool collision(){}
@@ -178,17 +175,52 @@ public:
 
 };
 
+
 class Player : public Character {
 public:
+	float dx = 0; float dy = 0;
+	int cx, cy;
+
 	int playerindex;
 	int health;
 	float speed;
 	bool Powerup;
-	Player(string filename, int _x, int _y, int _playerindex) : Character(filename, _x, _y), playerindex(_playerindex){
+
+	Player(string filename, int _x, int _y, int _playerindex) : Character(filename, _x, _y), playerindex(_playerindex) {
 		Powerup = false;
 		health = PLAYERMAXHEALTH[playerindex];
 		speed = PLAYERSPEED[playerindex];
+		cx = _x;
+		cy = _y;
 	}
+
+	void update(Window& canvas,int& wx, int& wy, float u) {
+
+		if (canvas.keyPressed('W')) dy -= speed * 0.01 * u;
+		if (canvas.keyPressed('S')) dy += speed * 0.01 * u;
+		if (canvas.keyPressed('A')) dx -= speed * 0.01 * u;
+		if (canvas.keyPressed('D')) dx += speed * 0.01 * u;
+		
+		if (dx >= 3) {
+			wx+=3;
+			dx = 0;
+		}
+		if (dx <= -3) {
+			wx-=3;
+			dx = 0;
+		}
+		if (dy >= 3) {
+			wy+=3;
+			dy = 0;
+		}
+		if (dy <= -3) {
+			wy-=3;
+			dy = 0;
+		}
+	}
+
+	int getX() { return cx; }
+	int getY() { return cy; }
 
 	void shoot() {
 
@@ -198,30 +230,90 @@ public:
 
 	}
 
-
-
-
 };
 
 class NPC : public Character {
+private:
+	
 public:
+	float dx = 0; float dy = 0;
+	int cx, cy;
+	int wxi, wyi;
+
 	int npcindex;
 	int health;
 	float speed;
-	NPC(string filename, int _x, int _y, int _npcindex,Player& p) : Character(filename, _x, _y), npcindex(_npcindex) {
+
+
+	NPC(string filename, int _x, int _y,int wx,int wy, int _npcindex) : Character(filename, _x, _y), npcindex(_npcindex) {
 		health = NPCMAXHEALTH[npcindex];
 		speed = NPCSPEED[npcindex];
+		cx = _x;
+		cy = _y;
+		wxi = cx + wx; //stay the same on the map unless self move
+		wyi = cy + wy;
 	}
 
-	void update() {
+	int getX() { return cx; }
+	int getY() { return cy; }
 
+	void update(Window& canvas, Player& p, int wx,int wy,float u) {
+		x += wxi - wx - cx;
+		y += wyi - wy - cy;
+		cx = wxi - wx;
+		cy = wyi - wy;
 
+		int px = p.getX(); int py = p.getY(); //  player world position
+		int difx = px - cx;
+		int dify = py - cy;
+		float length = sqrt(difx * difx + dify * dify);
+
+		if (npcindex != 3) { // skip static one 
+
+			// always towards player
+			float ux = 0.0f; float uy = 0.0f; // direction scaler
+			if (length != 0) {
+				ux = difx / length;
+				uy = dify / length;
+			}
+
+			float _dx = speed * 0.01f * ux * u;
+			float _dy = speed * 0.01f * uy * u;
+
+			dx += _dx;
+			dy += _dy;
+		}
+
+		if (dx >= 3) {
+			x += 3;
+			cx += 3;
+			wxi += 3;
+			dx = 0;
+		}
+		if (dx <= -3) {
+			x -= 3;
+			cx -= 3;
+			wxi -= 3;
+			dx = 0;
+		}
+		if (dy >= 3) {
+			y += 3;
+			cy += 3;
+			wyi += 3;
+			dy = 0;
+		}
+		if (dy <= -3) {
+			y -= 3;
+			cy -= 3;
+			wyi -= 3;
+			dy = 0;
+		}
 	}
 };
 
 // NPC spawn class
 class Spawn {
-private:
+public:
 	DBLL<NPC*> npc;
 	float timeElapsed = 0.0f; // time passed since last generate
 	float timeThreshold = SPAWNGAP; // generate time gap
@@ -231,10 +323,10 @@ private:
 		int p = rand() % 100;//random number to control percentagae of npc
 		int npcindex = 0;
 		//probability of index
-		int p0 = 50;
-		int p1 = 20;
-		int p2 = 20;
-		int p3 = 10;
+		int p0 = 40;
+		int p1 = 30;
+		int p2 = 15;
+		int p3 = 15;
 
 		if (p >= 0 && p < p0) {
 			npcindex = 0;
@@ -252,7 +344,7 @@ private:
 		return npcindex;
 	}
 
-	void generate(Window& canvas, Player& p,float dt) {
+	void generate(Window& canvas, Player& p, int wx,int wy,float dt) {
 		timeElapsed += dt;
 
 		if (timeElapsed >= timeThreshold) {
@@ -273,10 +365,11 @@ private:
 
 			// random npc 
 			int npcindex = randomnpcindex();
-			string filename = "npc" + to_string(npcindex) + ".png";
+			string filename = "Resources/npc" + to_string(npcindex) + ".png";
 
 			//create npc
-			NPC* n = new NPC(filename, randomX, randomY, npcindex,p);
+			NPC* n = new NPC(filename, randomX, randomY, wx,wy,npcindex);
+			cout << "SPAWN "<< "TYPE "<<npcindex<<" at: " << randomX << "\t" << randomY << endl;
 			npc.addend(n);
 
 			timeElapsed = 0.0f; //reset
@@ -291,29 +384,33 @@ private:
 	}
 
 	void checkdelete(Window& canvas, node<NPC*>* node) {
-		if (node->data->getX() > canvas.getWidth() + OUTMARGIN ||
-			node->data->getX() < canvas.getWidth() - OUTMARGIN ||
-			node->data->getY() > canvas.getHeight() + OUTMARGIN ||
-			node->data->getY() < canvas.getHeight() - OUTMARGIN
-			) {
-			npc.remove(node);
+		int rightb = canvas.getWidth() + OUTMARGIN;
+		int leftb = -OUTMARGIN;
+		int bottomb = canvas.getHeight() + OUTMARGIN;
+		int upb = -OUTMARGIN;
+		//cout << "check:"<<node->data->getX() << "\t" << node->data->getY() << endl;
+		//cout << rightb << "\t" << leftb << "\t" << bottomb << "\t" << upb << endl;
+		if (node->data->getX() > rightb ||
+			node->data->getX() < leftb ||
+			node->data->getY() > bottomb ||
+			node->data->getY() < upb) {
 			cout << "One NPC (Type" << node->data->npcindex << ") has been destroyed because too far away." << endl;
+			npc.remove(node);
 		}
 	}
 
-public:
 	Spawn() {}
 
 	~Spawn() { npc.~DBLL(); } // free the double linked list
 
 	// update position of npc
-	void update(Window& canvas, Player& p,float dt,float _u) {
-		generate(canvas,p,dt);
+	void update(Window& canvas, Player& p, int wx,int wy,float dt, float u) {
+		generate(canvas, p,wx,wy,dt);
 
 		node<NPC*>* current = npc.gethead();
 		while (current != nullptr) {
-			current->data->update();
 			node<NPC*>* next = current->next;
+			current->data->update(canvas, p,wx,wy, u);
 			checkdelete(canvas, current);
 			current = next;
 		}
@@ -593,66 +690,8 @@ void loadgame(unsigned int _slot = 1) {
 	load.close();
 }
 
-void WASD_Player_digitmove(Window& canvas, int speed, int& wx, int& wy, float u) {
-	float dx = 0.0f;
-	float dy = 0.0f;
-	if (canvas.keyPressed('W')) dy -= u;
-	if (canvas.keyPressed('S')) dy += u;
-	if (canvas.keyPressed('A')) dx -= u;
-	if (canvas.keyPressed('D')) dx += u;
-
-	if (dx >= 1) {
-		wx += speed;
-		dx = 0;
-	}
-	if (dx <= -1) {
-		float dx = 0.0f; float dy = 0.0f;
-		wx -= speed;
-		dx = 0;
-	}
-	if (dy >= 1) {
-		wy += speed;
-		dy = 0;
-	}
-	if (dy <= -1) {
-		wy -= speed;
-		dy = 0;
-	}
-}
-
-void test() {
-	DBLL<int> l;
-	cout << l.getsize() << endl;
-	int a = 10;
-	int b = 20;
-	int c = 30;
-	l.addfront(a);
-	l.addfront(b);
-	l.addfront(c);
-	cout << l.getsize() << endl;
-	node<int>* n = l.find(b);
-	l.remove(n);
-	cout << l.getsize() << endl;
-
-	cout << l.gethead()->data << endl;
-	cout << l.gettail()->data << endl;
-
-	l.remove(l.gethead());
-	cout << l.gethead()->data << endl;
-
-	cout << l.getsize() << endl;
-	l.remove(l.gettail());
-	cout << l.getsize() << endl;
-
-
-
-}
-
-
-
 // main funtion
 int main() {
-	test();
 	srand(time(0));// set seed for random
 	Timer timer;
 	bool run = true; //game loop run
@@ -672,23 +711,11 @@ int main() {
 
 
 	// creating Player with its initial position, health and speed
-	Player p("Resources/Player" + to_string(SCALE) + ".png", canvas.getWidth() / 2, canvas.getHeight() / 2,0);
+	Player p("Resources/Player" + to_string(SCALE) + ".png", canvas.getWidth() / 2, canvas.getHeight() / 2, 0);
 
 
 	// Random spawn NPC 
 	Spawn s;
-
-
-	// creating MovingNPC with its initial position, health and speed
-	//Movingnpc npcm1("Resources/m1.png", 0, 0, 10, 5);
-	//Movingnpc npcm2("Resources/m2.png", 0, 0, 10, 5);
-	//Movingnpc npcm3("Resources/m3.png", 0, 0, 10, 5);
-
-	// creating StaticNPC with its initial position, health and speed
-	//Staticnpc npcs1("Resources/s1.png", 0, 0, 10, 5);
-
-	// Generate NPC
-
 
 	// for in game show FPS
 	int framecount = 0;
@@ -709,23 +736,29 @@ int main() {
 
 
 		float dt = timer.dt(); //get dt value
-		float u = 1 + 2 * sin(100 * dt); //create a unit for moving
+		//cout << dt;
+		//float u = 1 + 500 * dt; //create a unit for moving
+		float u = 2 + 2 * sin(100 * dt); //create a unit for moving
 		//this value would reflect the change of dt so smoother
 		//use sin in order to restrict the value oscillate around 1 based on dt value, and for all dt [0,1],this would work
 		//times 10 to increase the weigt of dt value to make it smoother
 
 
 		//Keypress game logic update
-
 		if (canvas.keyPressed(VK_ESCAPE)) break;  // ESC to quit the game
 
-		//WASD Player move ,set speed with consider of the scale
-		WASD_Player_digitmove(canvas, p.speed * SCALE * SCALE, wx, wy, u);
 
+		//WASD Player move ,set speed with consider of the scale
+
+		p.update(canvas,wx, wy, u);
+		//cout << "wx wy: " << wx << "\t" << wy << endl;
+		//cout << "modified wx wy: " << wx + canvas.getWidth() / 2 << "\t" << wy + canvas.getHeight() / 2 << endl;
+
+		s.update(canvas, p, wx,wy,dt, u);
 
 		// draw the frame
 		w.draw(canvas, wx, wy);
-
+		s.draw(canvas);
 		p.draw(canvas);
 
 		// display the frame drawn to the canvas created

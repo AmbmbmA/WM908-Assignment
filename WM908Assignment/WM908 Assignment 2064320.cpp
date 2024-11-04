@@ -1,6 +1,7 @@
 ﻿#include <iostream>
 #include <fstream>
 #include <cmath>
+#include <ctime>
 using namespace std;
 
 
@@ -8,33 +9,148 @@ using namespace std;
 using namespace GamesEngineeringBase;
 
 
-
-const unsigned int LEVELNUM = 2;
-const unsigned int LEVELTIME = 120; //game time length in second
-const unsigned int INGAMESHOW = 5;
+//game const
+const unsigned int LEVELNUM = 2; // total level number
+const unsigned int LEVELTIME[LEVELNUM] = { 120,120 }; //level time length in second
+const unsigned int INGAMESHOW = 5; //time gap for in game show
 const unsigned int RESOURCENUM = 9; //default tileset size
 const unsigned int SCALE = 1; //scale of the window,with modified character size and speed
 
+//Spawn const
+const int INMARGIN = 100; // range for the npc to spawn outside the cancas
+const int OUTMARGIN = 1000; // range for the npc to spawn outside the cancas
+const float SPAWNGAP = 3.0f; //initial spawn time gap
+const float SPAWNACC = 0.2f; // spawn accelerate gap
+const float MINSPAWNGAP = 0.5f; // MIN spawn gap
 
-class Character {
+//character const
+const unsigned int PLAYERMAXHEALTH[1] = { 10 };
+const float PLAYERSPEED[1] = { 55 };
+const unsigned int NPCMAXHEALTH[4] = { 10 , 10 , 10 , 10 };
+const float NPCSPEED[4] = { 60 , 50 , 45 , 0 };
+
+// double linked list template
+template <typename T>
+class node {
+public:
+	T data; // data in the node
+	node* next = nullptr; // ptr to next node
+	node* prev = nullptr; // ptr to previous node
+
+	node(T& _data) : data(_data) {}
+};
+
+template<typename T>
+class DBLL {
 private:
+	node<T>* head = nullptr; // the head of the list
+	node<T>* tail = nullptr; // the tail of the list
+	unsigned int size = 0;
+public:
+	DBLL() {}
 
+	~DBLL() {
+		node<T>* current = head; // start delete from head
+		while (current != nullptr) { //if not null, point the head to next node, delete the original head data
+			node<T>* next = current->next;
+			delete current;
+			current = next;
+		}
+	}
+
+	//add new element at head
+	void addfront(T& _data) {
+		node<T>* newnode = new node<T>(_data);
+		if (head == nullptr) { // empty list
+			head = tail = newnode;
+		}
+		else {
+			head->prev = newnode; //point from origin head to new
+			newnode->next = head; //add new before head
+			head = newnode; // set new as the head
+		}
+		size++;
+	}
+
+	// add new element at tail
+	void addend(T& _data) {
+		node<T>* newnode = new node<T>(_data);
+		if (tail == nullptr) {
+			head = tail = newnode;
+		}
+		else {
+			tail->next = newnode;
+			newnode->prev = tail;
+			tail = newnode;
+		}
+		size++;
+	}
+
+	//remove an element from the list
+	void remove(node<T>* node) {
+		if (node == nullptr) return;
+
+		//last element
+		if (node == head && node == tail) {
+			head = tail = nullptr;
+		}
+		else if (node == head) {
+			head = node->next;
+			if (head != nullptr) head->prev = nullptr;
+		}
+		else if (node == tail) {
+			tail = node->prev;
+			if (tail != nullptr) tail->next = nullptr;
+		}
+		else {
+			node->prev->next = node->next;
+			node->next->prev = node->prev;
+		}
+
+		delete node;
+		size--;
+	}
+
+
+
+	//find node for the data
+	node<T>* find(const T& _data) {
+		node<T>* current = head;
+		while (current != nullptr) {
+			if (current->data == _data) {
+				return current;
+			}
+			current = current->next;
+		}
+		return nullptr;
+	}
+
+	//get size of the list
+	unsigned int getsize() { return size; }
+
+	// Get the head of the list
+	node<T>* gethead() const { return head; }
+
+	// Get the tail of the list
+	node<T>* gettail() const { return tail; }
+
+};
+
+
+
+// Game character classes
+class Character {
 protected:
 	int x, y; // position of the charactor, left up corner
 	Image sprite; // charactor sprite
-
 public:
-	int health;
-	float speed;
+
 
 	//constructor, load the character sprite at given position and store basic character info
-	Character(string filename, int _x, int _y, int _health, float _speed) {
+	Character(string filename, int _x, int _y) {
 		sprite.load(filename);
 		x = _x - sprite.width / 2;
 		y = _y - sprite.height / 2;
-		health = _health;
-		speed = _speed;
-
 	}
 
 	void draw(Window& canvas) {
@@ -49,22 +165,9 @@ public:
 			}
 		}
 
-
-
 	}
 
 
-	// update health when take demage
-	virtual void takedemage(int demage) {
-		health -= demage;
-		if (health < 0) health = 0;
-	}
-
-	// pure virtual method for moving, to be defined for different characters
-	virtual void move(int, int) {}
-
-	// destructor, virtual because derived class object is deleted through a base class pointer, the destructor of the derived class is called, preventing resource leaks.
-	//virtual ~Character() {}
 
 	// pure virtual method for collision, to be defined for different characters
 	//virtual bool collision(){}
@@ -72,16 +175,52 @@ public:
 
 };
 
+
 class Player : public Character {
-private:
-	bool Powerup;
-protected:
-
 public:
-	Player(string filename, int _x, int _y, int _health, float _speed) : Character(filename, _x, _y, _health, _speed) {
-		Powerup = false;
+	float dx = 0; float dy = 0;
+	int cx, cy;
 
+	int playerindex;
+	int health;
+	float speed;
+	bool Powerup;
+
+	Player(string filename, int _x, int _y, int _playerindex) : Character(filename, _x, _y), playerindex(_playerindex) {
+		Powerup = false;
+		health = PLAYERMAXHEALTH[playerindex];
+		speed = PLAYERSPEED[playerindex];
+		cx = _x;
+		cy = _y;
 	}
+
+	void update(Window& canvas, int& wx, int& wy, float u) {
+
+		if (canvas.keyPressed('W')) dy -= speed * 0.01 * u;
+		if (canvas.keyPressed('S')) dy += speed * 0.01 * u;
+		if (canvas.keyPressed('A')) dx -= speed * 0.01 * u;
+		if (canvas.keyPressed('D')) dx += speed * 0.01 * u;
+
+		if (dx >= 3) {
+			wx += 3;
+			dx = 0;
+		}
+		if (dx <= -3) {
+			wx -= 3;
+			dx = 0;
+		}
+		if (dy >= 3) {
+			wy += 3;
+			dy = 0;
+		}
+		if (dy <= -3) {
+			wy -= 3;
+			dy = 0;
+		}
+	}
+
+	int getX() { return cx; }
+	int getY() { return cy; }
 
 	void shoot() {
 
@@ -91,69 +230,209 @@ public:
 
 	}
 
-
-
-
 };
 
 class NPC : public Character {
 private:
 
-protected:
-
 public:
-	NPC(string filename, int _x, int _y, int _health, float _speed) : Character(filename, _x, _y, _health, _speed) {}
+	float dx = 0; float dy = 0;
+	int cx, cy;
+	int wxi, wyi;
 
-	virtual void generate() {
+	int npcindex;
+	int health;
+	float speed;
 
+
+	NPC(string filename, int _x, int _y, int wx, int wy, int _npcindex) : Character(filename, _x, _y), npcindex(_npcindex) {
+		health = NPCMAXHEALTH[npcindex];
+		speed = NPCSPEED[npcindex];
+		cx = _x;
+		cy = _y;
+		wxi = cx + wx; //stay the same on the map unless self move
+		wyi = cy + wy;
 	}
 
+	int getX() { return cx; }
+	int getY() { return cy; }
 
-};
+	void update(Window& canvas, Player& p, int wx, int wy, float u) {
+		x += wxi - wx - cx;
+		y += wyi - wy - cy;
+		cx = wxi - wx;
+		cy = wyi - wy;
 
-class Movingnpc : public NPC {
-private:
+		int px = p.getX(); int py = p.getY(); //  player world position
+		int difx = px - cx;
+		int dify = py - cy;
+		float length = sqrt(difx * difx + dify * dify);
 
-protected:
+		if (npcindex != 3) { // skip static one 
 
-public:
-	Movingnpc(string filename, int _x, int _y, int _health, float _speed) : NPC(filename, _x, _y, _health, _speed) {
+			// always towards player
+			float ux = 0.0f; float uy = 0.0f; // direction scaler
+			if (length != 0) {
+				ux = difx / length;
+				uy = dify / length;
+			}
 
+			float _dx = speed * 0.01f * ux * u;
+			float _dy = speed * 0.01f * uy * u;
+
+			dx += _dx;
+			dy += _dy;
+		}
+
+		if (dx >= 3) {
+			x += 3;
+			cx += 3;
+			wxi += 3;
+			dx = 0;
+		}
+		if (dx <= -3) {
+			x -= 3;
+			cx -= 3;
+			wxi -= 3;
+			dx = 0;
+		}
+		if (dy >= 3) {
+			y += 3;
+			cy += 3;
+			wyi += 3;
+			dy = 0;
+		}
+		if (dy <= -3) {
+			y -= 3;
+			cy -= 3;
+			wyi -= 3;
+			dy = 0;
+		}
 	}
-
-
-
-
 };
 
-class Staticnpc : public NPC {
-private:
-
-protected:
-
-public:
-	Staticnpc(string filename, int _x, int _y, int _health, float _speed) : NPC(filename, _x, _y, _health, _speed) {
-
-	}
-
-
-	void move() {}
-
-};
-
+// NPC spawn class
 class Spawn {
-private:
-
-protected:
-
 public:
-	Spawn() {
+	DBLL<NPC*> npc;
+	float timeElapsed = 0.0f; // time passed since last generate
+	float timeThreshold = SPAWNGAP; // generate time gap
 
+	int randomnpcindex() {
+
+		int p = rand() % 100;//random number to control percentagae of npc
+		int npcindex = 0;
+		//probability of index
+		int p0 = 40;
+		int p1 = 30;
+		int p2 = 15;
+		int p3 = 15;
+
+		if (p >= 0 && p < p0) {
+			npcindex = 0;
+		}
+		else if (p >= p0 && p < p0 + p1) {
+			npcindex = 1;
+		}
+		else if (p >= p0 + p1 && p < p0 + p1 + p2) {
+			npcindex = 2;
+		}
+		else if (p >= p0 + p1 + p2 && p < 100) {
+			npcindex = 3;
+		}
+
+		return npcindex;
+	}
+
+	void generate(Window& canvas, Player& p, int wx, int wy, float dt) {
+		timeElapsed += dt;
+
+		if (timeElapsed >= timeThreshold) {
+			//random position
+			int randomX, randomY;
+			randomX = rand() % (canvas.getWidth() + 2 * OUTMARGIN) - OUTMARGIN; // X [-OUTMARGIN,width+OUTMAGIN]
+			if (randomX < -INMARGIN || randomX > canvas.getWidth() + INMARGIN) { //x ouside INMARGIN
+				randomY = rand() % (canvas.getHeight() + 2 * OUTMARGIN) - OUTMARGIN; // y [-OUTMARGIN,height+OUTMAGIN]
+			}
+			else { // x inside canvas
+				if (rand() % 2 == 0) { //50% above
+					randomY = -INMARGIN - rand() % (OUTMARGIN - INMARGIN); //y [-INMARGIN,-OUTMARGIN]
+				}
+				else { //50% below
+					randomY = canvas.getHeight() + INMARGIN + rand() % (OUTMARGIN - INMARGIN);//y [height + INMARGIN,height + OUTMARGIN]
+				}
+			}
+
+			// random npc 
+			int npcindex = randomnpcindex();
+			string filename = "Resources/npc" + to_string(npcindex) + ".png";
+
+			//create npc
+			NPC* n = new NPC(filename, randomX, randomY, wx, wy, npcindex);
+			cout << "SPAWN " << "TYPE " << npcindex << " at: " << randomX << "\t" << randomY << endl;
+			npc.addend(n);
+
+			timeElapsed = 0.0f; //reset
+			if (timeThreshold != MINSPAWNGAP) { // once reach limit, do not change
+				timeThreshold -= SPAWNACC; // accelerate spawn rate
+				if (timeThreshold <= MINSPAWNGAP) {
+					timeThreshold = MINSPAWNGAP;// restrict the min gap
+				}
+			}
+		}
+
+	}
+
+	void checkdelete(Window& canvas, node<NPC*>* node) {
+		int rightb = canvas.getWidth() + OUTMARGIN;
+		int leftb = -OUTMARGIN;
+		int bottomb = canvas.getHeight() + OUTMARGIN;
+		int upb = -OUTMARGIN;
+		//cout << "check:"<<node->data->getX() << "\t" << node->data->getY() << endl;
+		//cout << rightb << "\t" << leftb << "\t" << bottomb << "\t" << upb << endl;
+		if (node->data->getX() > rightb ||
+			node->data->getX() < leftb ||
+			node->data->getY() > bottomb ||
+			node->data->getY() < upb) {
+			cout << "One NPC (Type" << node->data->npcindex << ") has been destroyed because too far away." << endl;
+			npc.remove(node);
+		}
+	}
+
+	Spawn() {}
+
+	~Spawn() { npc.~DBLL(); } // free the double linked list
+
+	// update position of npc
+	void update(Window& canvas, Player& p, int wx, int wy, float dt, float u) {
+		generate(canvas, p, wx, wy, dt);
+
+		node<NPC*>* current = npc.gethead();
+		while (current != nullptr) {
+			node<NPC*>* next = current->next;
+			current->data->update(canvas, p, wx, wy, u);
+			checkdelete(canvas, current);
+			current = next;
+		}
+
+
+	}
+
+	// draw npc on canvas
+	void draw(Window& canvas) {
+		node<NPC*>* current = npc.gethead();
+		while (current != nullptr) { // all npc stored in the BDLL
+			current->data->draw(canvas);
+			current = current->next;
+		}
 	}
 
 
 };
 
+
+
+// World tile classes
 class tile {
 private:
 	Image sprite;
@@ -241,7 +520,7 @@ public:
 
 		for (unsigned int i = 0; i < worldsizeX; i++) {
 			for (unsigned int j = 0; j < worldsizeY; j++) {
-				mapseed[i][j] = randomindex();
+				mapseed[i][j] = randomtileindex();
 			}
 		}
 
@@ -298,7 +577,7 @@ public:
 		savemap.close();
 	}
 
-	int randomindex() {
+	int randomtileindex() {
 
 		int p = rand() % 100;//random number to control percentagae of tile
 		int tileindex = 0;
@@ -388,6 +667,9 @@ public:
 
 };
 
+
+
+// In game functions
 void savegame(unsigned int _slot = 1) {
 	ofstream save;
 
@@ -408,34 +690,7 @@ void loadgame(unsigned int _slot = 1) {
 	load.close();
 }
 
-
-void WASD_Player_digitmove(Window& canvas, int speed, int& wx, int& wy, float u) {
-	float dx = 0.0f;
-	float dy = 0.0f;
-	if (canvas.keyPressed('W')) dy -= u;
-	if (canvas.keyPressed('S')) dy += u;
-	if (canvas.keyPressed('A')) dx -= u;
-	if (canvas.keyPressed('D')) dx += u;
-
-	if (dx >= 1) {
-		wx += speed;
-		dx = 0;
-	}
-	if (dx <= -1) {
-		float dx = 0.0f; float dy = 0.0f;
-		wx -= speed;
-		dx = 0;
-	}
-	if (dy >= 1) {
-		wy += speed;
-		dy = 0;
-	}
-	if (dy <= -1) {
-		wy -= speed;
-		dy = 0;
-	}
-}
-
+// main funtion
 int main() {
 	srand(time(0));// set seed for random
 	Timer timer;
@@ -456,18 +711,11 @@ int main() {
 
 
 	// creating Player with its initial position, health and speed
-	Player p("Resources/Player" + to_string(SCALE) + ".png", canvas.getWidth() / 2, canvas.getHeight() / 2, 10, 1.5f);
+	Player p("Resources/Player" + to_string(SCALE) + ".png", canvas.getWidth() / 2, canvas.getHeight() / 2, 0);
 
-	// creating MovingNPC with its initial position, health and speed
-	//Movingnpc npcm1("Resources/m1.png", 0, 0, 10, 5);
-	//Movingnpc npcm2("Resources/m2.png", 0, 0, 10, 5);
-	//Movingnpc npcm3("Resources/m3.png", 0, 0, 10, 5);
 
-	// creating StaticNPC with its initial position, health and speed
-	//Staticnpc npcs1("Resources/s1.png", 0, 0, 10, 5);
-
-	// Generate NPC
-
+	// Random spawn NPC 
+	Spawn s;
 
 	// for in game show FPS
 	int framecount = 0;
@@ -488,23 +736,29 @@ int main() {
 
 
 		float dt = timer.dt(); //get dt value
-		float u = 1 + 2 * sin(100 * dt); //create a unit for moving
+		//cout << dt;
+		//float u = 1 + 500 * dt; //create a unit for moving
+		float u = 2 + 2 * sin(100 * dt); //create a unit for moving
 		//this value would reflect the change of dt so smoother
 		//use sin in order to restrict the value oscillate around 1 based on dt value, and for all dt [0,1],this would work
 		//times 10 to increase the weigt of dt value to make it smoother
 
 
 		//Keypress game logic update
-
 		if (canvas.keyPressed(VK_ESCAPE)) break;  // ESC to quit the game
 
-		//WASD Player move ,set speed with consider of the scale
-		WASD_Player_digitmove(canvas, p.speed * SCALE * SCALE, wx, wy, u);
 
+		//WASD Player move ,set speed with consider of the scale
+
+		p.update(canvas, wx, wy, u);
+		//cout << "wx wy: " << wx << "\t" << wy << endl;
+		//cout << "modified wx wy: " << wx + canvas.getWidth() / 2 << "\t" << wy + canvas.getHeight() / 2 << endl;
+
+		s.update(canvas, p, wx, wy, dt, u);
 
 		// draw the frame
 		w.draw(canvas, wx, wy);
-
+		s.draw(canvas);
 		p.draw(canvas);
 
 		// display the frame drawn to the canvas created
@@ -534,7 +788,7 @@ int main() {
 
 
 		// for average FPS
-		if (Game_time >= LEVELTIME) {
+		if (Game_time >= LEVELTIME[0]) {
 			break;
 		}
 
@@ -549,62 +803,5 @@ int main() {
 	int FPS = overframecount / Game_time;
 	cout << "Average FPS: " << FPS << endl;
 
-	//system("pause");
+	//system("pause"); // prevent auto quit when game is over
 }
-
-// Draw(); 
-//for (unsigned int x = canvas.getMouseInWindowX() - 10; x < canvas.getMouseInWindowX() + 10; x++)
-//	for (unsigned int y = canvas.getMouseInWindowY() - 10; y < canvas.getMouseInWindowY() + 10; y++)
-//		if (x >= 0 && y >= 0 && x < canvas.getWidth() && y < canvas.getHeight())
-//			canvas.draw(x, y, 255, 0, 0);
-
-
-
-//void WASD(Window& canvas, Player& p, float speed, float u, float& dx, float& dy) {
-//	int x = 0; int y = 0;
-//	if (canvas.keyPressed('W')) dy -= speed * u;
-//	if (canvas.keyPressed('S')) dy += speed * u;
-//	if (canvas.keyPressed('A')) dx -= speed * u;
-//	if (canvas.keyPressed('D')) dx += speed * u;
-//	if (canvas.keyPressed('W') && canvas.keyPressed('A')) {
-//		dy += speed * u;
-//		dx += speed * u;
-//		dy -= (speed / 2) * u;
-//		dx -= (speed / 2) * u;
-//	}
-//	if (canvas.keyPressed('W') && canvas.keyPressed('D')) {
-//		dy += speed * u;
-//		dx -= speed * u;
-//		dy -= (speed / 2) * u;
-//		dx += (speed / 2) * u;
-//	}
-//	if (canvas.keyPressed('S') && canvas.keyPressed('A')) {
-//		dy -= speed * u;
-//		dx += speed * u;
-//		dy += (speed / 2) * u;
-//		dx -= (speed / 2) * u;
-//	}
-//	if (canvas.keyPressed('S') && canvas.keyPressed('D')) {
-//		dy -= speed * u;
-//		dx -= speed * u;
-//		dy += (speed / 2) * u;
-//		dx += (speed / 2) * u;
-//	}
-//
-//	if (dx >= 1) {
-//		p.move(1, 0);
-//		dx = 0;
-//	}
-//	if (dx <= -1) {
-//		p.move(-1, 0);
-//		dx = 0;
-//	}
-//	if (dy >= 1) {
-//		p.move(0, 1);
-//		dy = 0;
-//	}
-//	if (dy <= -1) {
-//		p.move(0, -1);
-//		dy = 0;
-//	}
-//}
