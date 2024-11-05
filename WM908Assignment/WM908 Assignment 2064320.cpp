@@ -11,7 +11,7 @@ using namespace GamesEngineeringBase;
 
 //game const
 const unsigned int LEVELNUM = 2; // total level number
-const unsigned int LEVELTIME[LEVELNUM] = { 120,120 }; //level time length in second
+const unsigned int LEVELTIME[LEVELNUM] = { 10,10 }; //level time length in second
 const bool LEVELMAPINF[LEVELNUM] = { true,false };//level map infinity
 const unsigned int HORIBOND = 50; // horizontal bondwidth for finitemap
 const unsigned int VERTIBOND = 50;
@@ -29,7 +29,7 @@ const int MAXNUM = 20; // max number of NPC allow exist
 
 //character const
 const unsigned int PLAYERMAXHEALTH[1] = { 10 };
-const float PLAYERSPEED[1] = { 65 };
+const float PLAYERSPEED[1] = { 650 };
 const unsigned int NPCMAXHEALTH[4] = { 10 , 10 , 10 , 10 };
 const float NPCSPEED[4] = { 55 , 50 , 40 , 0 };
 
@@ -140,16 +140,26 @@ public:
 
 };
 
-// Game character classes
-class Character {
+// array add template
+template<typename T>
+T sumarr(T* arr, int size) {
+	T sum = 0;
+	for (int i = 0; i < size; i++) {
+		sum += arr[i];
+	}
+	return sum;
+}
+
+// Game Sprite classes
+class Sprites {
 protected:
-	Image sprite; // charactor sprite
-	int x, y; // position of the charactor, left up corner
+	Image sprite; //  sprite
+	int x, y; // position of the sprite, left up corner
 public:
 
 
-	//constructor, load the character sprite at given position and store basic character info
-	Character(string filename, int _x, int _y) {
+	//constructor, load the sprite at given position and store basic  info
+	Sprites(string filename, int _x, int _y) {
 		sprite.load(filename);
 		x = _x - sprite.width / 2;
 		y = _y - sprite.height / 2;
@@ -175,7 +185,7 @@ public:
 
 };
 
-class Player : public Character {
+class Player : public Sprites {
 public:
 	float dx = 0; float dy = 0;
 	int cx, cy; //center postion relate to canvas
@@ -186,7 +196,7 @@ public:
 	float speed;
 	bool Powerup;
 
-	Player(string filename, int _x, int _y, int _playerindex) : Character(filename, _x, _y), playerindex(_playerindex) {
+	Player(string filename, int _x, int _y, int _playerindex) : Sprites(filename, _x, _y), playerindex(_playerindex) {
 		Powerup = false;
 		health = PLAYERMAXHEALTH[playerindex];
 		speed = PLAYERSPEED[playerindex];
@@ -266,7 +276,7 @@ public:
 
 };
 
-class NPC : public Character {
+class NPC : public Sprites {
 private:
 
 public:
@@ -279,7 +289,7 @@ public:
 	float speed;
 
 
-	NPC(string filename, int _x, int _y, int wx, int wy, int _npcindex) : Character(filename, _x, _y), npcindex(_npcindex) {
+	NPC(string filename, int _x, int _y, int wx, int wy, int _npcindex) : Sprites(filename, _x, _y), npcindex(_npcindex) {
 		health = NPCMAXHEALTH[npcindex];
 		speed = NPCSPEED[npcindex];
 		cx = _x;
@@ -344,6 +354,7 @@ public:
 			dy = 0;
 		}
 	}
+
 };
 
 // NPC spawn class
@@ -477,6 +488,11 @@ public:
 		}
 	}
 
+
+};
+
+// collision between Charaters,pojectiles
+class collision {
 
 };
 
@@ -801,8 +817,6 @@ public:
 	tileset& gettileset() { return tiles; }
 };
 
-
-
 // In game functions
 void savegame(unsigned int _slot = 1) {
 	ofstream save;
@@ -824,13 +838,7 @@ void loadgame(unsigned int _slot = 1) {
 	load.close();
 }
 
-int sumintarr(int* arr, int size) {
-	int sum = 0;
-	for (int i = 0; i < size; i++) {
-		sum += arr[i];
-	}
-	return sum;
-}
+
 
 // main funtion
 int main() {
@@ -870,7 +878,7 @@ int main() {
 
 	//for final FPS
 	int overframecount = 0;
-	float Game_time = 0.0f;
+	float Game_time[LEVELNUM] = { 0.0f,0.0f };
 
 	// world position(left up corner)
 	int wx[LEVELNUM] = { 0,0 };
@@ -881,12 +889,14 @@ int main() {
 	wy[0] = w0.getsizey() * w0.gettileset()[0].getheight() / 2;
 	wx[1] = w1.getsizex() * w1.gettileset()[0].getwidth() / 2;
 	wy[1] = w1.getsizey() * w1.gettileset()[0].getheight() / 2;
+
 	// game level start from 0
-	int level = 1;
+	int level = 0;
 
 	// main game loop
 	while (run)
 	{
+		bool gameover = false;
 		canvas.checkInput(); // detect the input
 		canvas.clear(); //clear this frame for next frame to be drawn
 
@@ -913,6 +923,15 @@ int main() {
 			w0.draw(canvas, wx[level], wy[level]);
 			s.draw(canvas);
 			p.draw(canvas);
+
+			Game_time[level] += dt;
+			if (Game_time[level] >= LEVELTIME[level]) {
+				cout << "LEVEL " << level << " CLEAR!" << endl;
+				if (level < LEVELNUM - 1) {
+					cout << "LEVEL " << level + 1 << " START!" << endl;
+				}
+				level++;
+			}
 		}
 		else if (level == 1) {
 			w1.collisionplayer(canvas, p, wx[level], wy[level], u);
@@ -923,17 +942,30 @@ int main() {
 			w1.draw(canvas, wx[level], wy[level]);
 			s.draw(canvas);
 			p.draw(canvas);
+
+			Game_time[level] += dt;
+			if (Game_time[level] >= LEVELTIME[level]) {
+				cout << "LEVEL " << level << " CLEAR!" << endl;
+				if (level < LEVELNUM - 1) {
+					cout << "LEVEL " << level + 1 << " START!" << endl;
+				}
+				level++;
+			}
 		}
 
 
-		// display the frame drawn to the canvas created
-		canvas.present();
+
+		if (level > LEVELNUM - 1) { gameover = true; }// all level done 
+
+		if (gameover == true) {
+			run = false;
+			break;
+		}
 
 		// update for each frame
 		framecount++;
 		secondcount += dt;
 		overframecount++;
-		Game_time += dt;
 
 		// in game show every
 		if (secondcount >= INGAMESHOW || canvas.mouseButtonPressed(MouseRight)) {
@@ -943,20 +975,13 @@ int main() {
 			cout << "FPS:" << FPS << endl;
 			framecount = 0;
 
-			//time
-			cout << "Time passed: " << static_cast<int>(Game_time) << "s" << endl;
-
 			//score
 
 			secondcount = 0;
 		}
 
-
-		// for average FPS
-		if (Game_time >= LEVELTIME[0]) {
-			break;
-		}
-
+		// display the frame drawn to the canvas created
+		canvas.present();
 	}
 
 	// End game show
@@ -967,26 +992,27 @@ int main() {
 
 	cout << "Detail:" << endl;
 
-	cout << "NPC generated: " << sumintarr(s.generated, 4) << "\t";
+	cout << "NPC generated: " << sumarr<int>(s.generated, 4) << "\t";
 	cout << "type0 (" << s.generated[0] << ")" << "\t";
 	cout << "type1 (" << s.generated[1] << ")" << "\t";
 	cout << "type2 (" << s.generated[2] << ")" << "\t";
 	cout << "type3 (" << s.generated[3] << ")" << endl;
 
-	cout << "NPC defeated: " << sumintarr(s.defeated, 4) << "\t";
+	cout << "NPC defeated: " << sumarr<int>(s.defeated, 4) << "\t";
 	cout << "type0 (" << s.defeated[0] << ")" << "\t";
 	cout << "type1 (" << s.defeated[1] << ")" << "\t";
 	cout << "type2 (" << s.defeated[2] << ")" << "\t";
 	cout << "type3 (" << s.defeated[3] << ")" << endl;
 
-	cout << "NPC outranged: " << sumintarr(s.outrange, 4) << "\t";
+	cout << "NPC outranged: " << sumarr<int>(s.outrange, 4) << "\t";
 	cout << "type0 (" << s.outrange[0] << ")" << "\t";
 	cout << "type1 (" << s.outrange[1] << ")" << "\t";
 	cout << "type2 (" << s.outrange[2] << ")" << "\t";
 	cout << "type3 (" << s.outrange[3] << ")" << endl;
 
 
-	int FPS = overframecount / Game_time;
+	cout << "Game time: " << sumarr<float>(Game_time, LEVELNUM) << "s" << endl;
+	int FPS = overframecount / sumarr<float>(Game_time, LEVELNUM);
 	cout << "Average FPS: " << FPS << endl;
 
 	//system("pause"); // prevent auto quit when game is over
