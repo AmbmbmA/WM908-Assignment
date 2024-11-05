@@ -21,21 +21,26 @@ const float SCALE = 1; //scale of the window,with modified character size and sp
 
 //Spawn const
 const int INMARGIN = 100; // range for the npc to spawn outside the cancas
-const int OUTMARGIN = 3000; // range for the npc to spawn outside the cancas
+const int OUTMARGIN = 5000; // range for the npc to spawn outside the cancas
 const float SPAWNGAP = 2.0f; //initial spawn time gap
 const float SPAWNACC = 0.2f; // spawn accelerate gap
-const float MINSPAWNGAP = 0.5f; // MIN spawn gap
-const int MAXNUM = 20; // max number of NPC allow exist
+const float MINSPAWNGAP = 0.2f; // MIN spawn gap
+const int MAXNUM = 30; // max number of NPC allow exist
 
 //character const
+
 //health
 const unsigned int PLAYERMAXHEALTH[1] = { 1000 };
 const unsigned int NPCMAXHEALTH[4] = { 1000 , 1000 , 1000 , 3000 };
 //speed
 const float PLAYERSPEED[1] = { 65 };
 const float NPCSPEED[4] = { 55 , 50 , 40 , 0 };
-const int PROSPEED[2] = { 100,100 };
+const int PROSPEED[2] = { 150,40 };
 const int NPCSCORE[4] = { 5,10,15,20 };
+//atk
+const int CRASH = 1;
+const int PROJ0 = 500;
+const int PROJ0MAXT = 2000;
 
 // double linked list template
 template <typename T>
@@ -65,17 +70,6 @@ public:
 			current = next;
 		}
 	}
-
-	//~DBLL() {
-	//	node<T>* current = head;
-	//	while (current != nullptr) {
-	//		node<T>* next = current->next;
-	//		delete current;
-	//		current = next;
-	//	}
-	//	head = nullptr; // 避免悬空指针
-	//	tail = nullptr;
-	//}
 
 	//add new element at head
 	void addfront(T& _data) {
@@ -210,7 +204,7 @@ public:
 	int playerindex; // which player character
 	int health;
 	float speed;
-	float shootgap = 1.0f;
+	float shootgap = 0.5f;
 	bool Powerup;
 
 	Player(string filename, int _x, int _y, int _playerindex) : Sprites(filename, _x, _y), playerindex(_playerindex) {
@@ -458,24 +452,24 @@ public:
 
 	}
 
-	void checkdelete(Window& canvas, node<NPC*>* node) {
+	void checkdelete(Window& canvas, node<NPC*>* npcc) {
 		int rightb = canvas.getWidth() + OUTMARGIN;
 		int leftb = -OUTMARGIN;
 		int bottomb = canvas.getHeight() + OUTMARGIN;
 		int upb = -OUTMARGIN;
 
-		if (node->data->getcX() > rightb ||
-			node->data->getcX() < leftb ||
-			node->data->getcY() > bottomb ||
-			node->data->getcY() < upb) {
-			cout << "One NPC (Type" << node->data->npcindex << ") has been destroyed because too far away." << endl;
-			outrange[node->data->npcindex]++;
-			npc.remove(node);
+		if (npcc->data->getcX() > rightb ||
+			npcc->data->getcX() < leftb ||
+			npcc->data->getcY() > bottomb ||
+			npcc->data->getcY() < upb) {
+			cout << "One NPC (Type" << npcc->data->npcindex << ") has been destroyed because too far away." << endl;
+			outrange[npcc->data->npcindex]++;
+			npc.remove(npcc);
 		}
-		if (node->data->health <= 0) {
-			cout << "One NPC (Type" << node->data->npcindex << ") has been defeated;" << endl;
-			defeated[node->data->npcindex]++;
-			npc.remove(node);
+		if (npcc->data->health <= 0) {
+			cout << "One NPC (Type" << npcc->data->npcindex << ") has been defeated;" << endl;
+			defeated[npcc->data->npcindex]++;
+			npc.remove(npcc);
 		}
 	}
 
@@ -510,9 +504,6 @@ public:
 
 };
 
-
-
-
 // Projectiles
 class Projectile : public Sprites {
 
@@ -524,6 +515,7 @@ public:
 
 	int proindex;
 	float speed;
+	int mt = 0;
 
 	Projectile(string filename, int _x, int _y, int wx, int wy, int _proindex) : Sprites(filename, _x, _y), proindex(_proindex) {
 
@@ -537,20 +529,22 @@ public:
 	int getcX() { return cx; }
 	int getcY() { return cy; }
 
-	void update(Window& canvas, int targetx, int targety, int wx, int wy, float u) {
+	void update(Window& canvas, node<NPC*>* target, int wx, int wy, float u) {
 		// update xy based on the change of world
 		x += wxpr - wx - cx;
 		y += wypr - wy - cy;
+		mt += abs(wxpr - wx - cx) + abs(wypr - wy - cy);
 		cx = wxpr - wx;
 		cy = wypr - wy;
 
-		int difx = targetx - cx;
-		int dify = targety - cy;
+
+		int difx = (target->data->getX()) - cx;
+		int dify = (target->data->getY()) - cy;
 		length = sqrt(difx * difx + dify * dify);
 
 		// always towards target
 		float ux = 0.0f; float uy = 0.0f; // direction scaler
-		if (length >= 5) {
+		if (length >= 0) {
 			ux = difx / length;
 			uy = dify / length;
 		}
@@ -560,7 +554,7 @@ public:
 
 		dx += _dx;
 		dy += _dy;
-
+		mt += abs(_dx) + abs(_dy);
 
 		if (dx >= 3) {
 			x += 3;
@@ -590,12 +584,6 @@ public:
 
 };
 
-bool prvn(node<Projectile*>* proj0, Spawn& s) {
-
-	return false;
-}
-
-
 class Projectilemanage {
 	float timeElapsed = 0.0f; // time passed since last generate
 public:
@@ -611,7 +599,6 @@ public:
 
 			//create proj
 			Projectile* projn = new Projectile(filename, p.getcX(), p.getcY(), wx, wy, 0);
-			cout << "PRO at: " << p.getcX() << "\t" << p.getcY() << endl;
 			proj0.addend(projn);
 
 			timeElapsed = 0.0f; //reset
@@ -619,21 +606,26 @@ public:
 	}
 
 	// check player proj
-	void checkdelete0(Window& canvas, node<Projectile*>* node, Spawn& s) {
+	void checkdelete0(Window& canvas, node<Projectile*>* proj, node<NPC*>* npc) {
 		int rightb = canvas.getWidth() + OUTMARGIN;
 		int leftb = -OUTMARGIN;
 		int bottomb = canvas.getHeight() + OUTMARGIN;
 		int upb = -OUTMARGIN;
 
-		if (node->data->getcX() > rightb ||
-			node->data->getcX() < leftb ||
-			node->data->getcY() > bottomb ||
-			node->data->getcY() < upb) {
-			proj0.remove(node);
+		if (proj->data->getcX() > rightb ||
+			proj->data->getcX() < leftb ||
+			proj->data->getcY() > bottomb ||
+			proj->data->getcY() < upb) {
+			proj0.remove(proj);
 		}
-		if (prvn(node, s)) {
-			proj0.remove(node);
+		if (proj->data->length <= 10) {
+			proj0.remove(proj);
+			npc->data->health -= PROJ0;
 		}
+		if (proj->data->mt >= PROJ0MAXT) {
+			proj0.remove(proj);
+		}
+
 	}
 
 	Projectilemanage() {}
@@ -662,9 +654,9 @@ public:
 			while (currentp0 != nullptr) {
 				node<Projectile*>* next = currentp0->next;
 
-				currentp0->data->update(canvas, (target->data->getX()), (target->data->getY()), wx, wy, u);
+				currentp0->data->update(canvas, target, wx, wy, u);
 
-				checkdelete0(canvas, currentp0, s);
+				checkdelete0(canvas, currentp0, target);
 				currentp0 = next;
 			}
 		}
@@ -699,8 +691,8 @@ public:
 		while (current != nullptr) {
 			node<NPC*>* next = current->next;
 			if (current->data->length <= (p.getsprite().width + current->data->getsprite().width) / 2) {
-				p.health--;
-				current->data->health--;
+				p.health -= CRASH;
+				current->data->health -= CRASH;
 			}
 			current = next;
 		}
