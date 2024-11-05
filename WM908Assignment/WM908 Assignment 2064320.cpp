@@ -13,6 +13,8 @@ using namespace GamesEngineeringBase;
 const unsigned int LEVELNUM = 2; // total level number
 const unsigned int LEVELTIME[LEVELNUM] = { 120,120 }; //level time length in second
 const bool LEVELMAPINF[LEVELNUM] = { true,false };//level map infinity
+const unsigned int HORIBOND = 50; // horizontal bondwidth for finitemap
+const unsigned int VERTIBOND = 50;
 const unsigned int INGAMESHOW = 5; //time gap for in game show
 const unsigned int RESOURCENUM = 9; //default tileset size
 const float SCALE = 1; //scale of the window,with modified character size and speed
@@ -23,7 +25,7 @@ const int OUTMARGIN = 2000; // range for the npc to spawn outside the cancas
 const float SPAWNGAP = 1.0f; //initial spawn time gap
 const float SPAWNACC = 0.2f; // spawn accelerate gap
 const float MINSPAWNGAP = 0.5f; // MIN spawn gap
-const int MAXNUM = 20;
+const int MAXNUM = 20; // max number of NPC allow exist
 
 //character const
 const unsigned int PLAYERMAXHEALTH[1] = { 10 };
@@ -194,7 +196,7 @@ public:
 		wyp = _y - sprite.height / 2;
 	}
 
-	void update(Window& canvas, int& wx, int& wy, float u, int _level) {
+	void update(Window& canvas, int& wx, int& wy, float u) {
 
 		if (canvas.keyPressed('W') && canvas.keyPressed('A')) { //left above
 			dy -= speed * 0.01 * u * sqrt(2) / 2;
@@ -546,24 +548,53 @@ private:
 	string tiletype;
 public:
 
-	world(unsigned int _worldsizeX, unsigned int _worldsizeY, string _tiletype = "") {
-		worldsizeX = _worldsizeX;
-		worldsizeY = _worldsizeY;
-		tiletype = _tiletype;
+	world(unsigned int _worldsizeX, unsigned int _worldsizeY, int _level, string _tiletype = "t") {
+		if (LEVELMAPINF[_level] == true) {
+			worldsizeX = _worldsizeX;
+			worldsizeY = _worldsizeY;
+			tiletype = _tiletype;
 
-		mapseed = new unsigned int* [worldsizeX];
-		for (unsigned int i = 0; i < worldsizeX; i++) {
-			mapseed[i] = new unsigned int[worldsizeY];
-		}
+			mapseed = new unsigned int* [worldsizeX];
+			for (unsigned int i = 0; i < worldsizeX; i++) {
+				mapseed[i] = new unsigned int[worldsizeY];
+			}
 
-		tiles.load(tiletype);
+			tiles.load(tiletype);
 
-		for (unsigned int i = 0; i < worldsizeX; i++) {
-			for (unsigned int j = 0; j < worldsizeY; j++) {
-				mapseed[i][j] = randomtileindex();
+			for (unsigned int i = 0; i < worldsizeX; i++) {
+				for (unsigned int j = 0; j < worldsizeY; j++) {
+					mapseed[i][j] = randomtileindex();
+				}
 			}
 		}
+		else {
+			int caw = HORIBOND;
+			int cah = VERTIBOND;
+			worldsizeX = _worldsizeX + caw * 2;
+			worldsizeY = _worldsizeY + cah * 2;
+			tiletype = _tiletype;
 
+			mapseed = new unsigned int* [worldsizeX];
+			for (unsigned int i = 0; i < worldsizeX; i++) {
+				mapseed[i] = new unsigned int[worldsizeY];
+			}
+
+			tiles.load(tiletype);
+
+			// obstacle tiles
+			for (unsigned int i = 0; i < worldsizeX; i++) {
+				for (unsigned int j = 0; j < worldsizeY; j++) {
+					mapseed[i][j] = 5;
+				}
+			}
+
+			// world in the middle
+			for (unsigned int i = caw; i < (worldsizeX - caw); i++) {
+				for (unsigned int j = cah; j < (worldsizeY - cah); j++) {
+					mapseed[i][j] = randomtileindex();
+				}
+			}
+		}
 	}
 
 	//load world map from file
@@ -663,7 +694,7 @@ public:
 		return tileindex;
 	}
 
-	void draw(Window& canvas, int wx, int wy, int _level) {
+	void draw(Window& canvas, int wx, int wy) {
 		int tilewidth = tiles[0].getwidth(); // get the standard width for this tileset
 		int tileheight = tiles[0].getheight(); // get the standard height for this tileset
 		int nw = canvas.getWidth() / tilewidth; //number of tiles can be put in width
@@ -675,36 +706,22 @@ public:
 		int offsetx = wx % tilewidth;
 		int offsety = wy % tileheight;
 
-		if (LEVELMAPINF[_level] == true) {
-			for (int i = -1; i < nw + 1; i++) { // [-1,1] so there is no black gap when it touch the edge
-				for (int j = -1; j < nh + 1; j++) {
-					int currentX = (X + i) % worldsizeX;//which tiles to be draw, mod the maxsize to make it loop
-					int currentY = (Y + j) % worldsizeX;
-					int drawX = i * tilewidth - offsetx; // first draw consider the firsr tile with offset value, then add the rest based on where it is on the axis
-					int drawY = j * tileheight - offsety;
-					tiles[mapseed[currentX][currentY]].draw(canvas, drawX, drawY);
-				}
-			}
-		}
-		else {
-			if (X >= worldsizeX * maxrepeat) {
-				X = worldsizeX * (maxrepeat - 1);
-			}
 
-			for (int i = -1; i < nw + 1; i++) { // [-1,1] so there is no black gap when it touch the edge
-				for (int j = -1; j < nh + 1; j++) {
-					int currentX = (X + i) % worldsizeX;//which tiles to be draw, mod the maxsize to make it loop
-					int currentY = (Y + j) % worldsizeX;
-					int drawX = i * tilewidth - offsetx; // first draw consider the firsr tile with offset value, then add the rest based on where it is on the axis
-					int drawY = j * tileheight - offsety;
-					tiles[mapseed[currentX][currentY]].draw(canvas, drawX, drawY);
-				}
+		for (int i = -1; i < nw + 1; i++) { // [-1,1] so there is no black gap when it touch the edge
+			for (int j = -1; j < nh + 1; j++) {
+				int currentX = (X + i) % worldsizeX;//which tiles to be draw, mod the maxsize to make it loop
+				int currentY = (Y + j) % worldsizeX;
+				int drawX = i * tilewidth - offsetx; // first draw consider the firsr tile with offset value, then add the rest based on where it is on the axis
+				int drawY = j * tileheight - offsety;
+				tiles[mapseed[currentX][currentY]].draw(canvas, drawX, drawY);
 			}
 		}
+
+
 
 	}
 
-	bool collisionplayer(Window& canvas, Player& p, int& wx, int& wy, float u, int _level) {
+	bool collisionplayer(Window& canvas, Player& p, int& wx, int& wy, float u) {
 
 		bool col = false;
 
@@ -718,58 +735,56 @@ public:
 		int offsetx = wx % tilewidth;
 		int offsety = wy % tileheight;
 
-		if (LEVELMAPINF[_level] == true) {
-			for (int i = -1; i < nw + 1; i++) { // [-1,1] so there is no black gap when it touch the edge
-				for (int j = -1; j < nh + 1; j++) {
-					int currentX = (X + i) % worldsizeX;//which tiles to be draw, mod the maxsize to make it loop
-					int currentY = (Y + j) % worldsizeX;
-					int drawX = i * tilewidth - offsetx; // first draw consider the firsr tile with offset value, then add the rest based on where it is on the axis
-					int drawY = j * tileheight - offsety;
-					if (mapseed[currentX][currentY] > 4) {
-						// for all position where has drawn pixel of player 
-						for (int ii = p.getX(); ii < p.getX() + p.getsprite().width; ii++) {
-							for (int jj = p.getY(); jj < p.getY() + p.getsprite().height; jj++) {
-								//int px = ii - p.getX();
-								//int py = jj - p.getY();
-								//if (p.getsprite().alphaAt(px, py) > 200) { // check alpha value
-								// check collision
-								if (ii >= drawX && ii < drawX + tilewidth && jj >= drawY && jj < drawY + tileheight) {
-									col = true;
+		for (int i = -1; i < nw + 1; i++) { // [-1,1] so there is no black gap when it touch the edge
+			for (int j = -1; j < nh + 1; j++) {
+				int currentX = (X + i) % worldsizeX;//which tiles to be draw, mod the maxsize to make it loop
+				int currentY = (Y + j) % worldsizeX;
+				int drawX = i * tilewidth - offsetx; // first draw consider the firsr tile with offset value, then add the rest based on where it is on the axis
+				int drawY = j * tileheight - offsety;
+				if (mapseed[currentX][currentY] > 4) {
+					// for all position where has drawn pixel of player 
+					for (int ii = p.getX(); ii < p.getX() + p.getsprite().width; ii++) {
+						for (int jj = p.getY(); jj < p.getY() + p.getsprite().height; jj++) {
+							//int px = ii - p.getX();
+							//int py = jj - p.getY();
+							//if (p.getsprite().alphaAt(px, py) > 200) { // check alpha value
+							// check collision
+							if (ii >= drawX && ii < drawX + tilewidth && jj >= drawY && jj < drawY + tileheight) {
+								col = true;
 
-									bool left = (ii == p.getX());
-									bool right = (ii == p.getX() + p.getsprite().width - 1);
-									bool up = (jj == p.getY());
-									bool down = (jj == p.getY() + p.getsprite().height - 1);
+								bool left = (ii == p.getX());
+								bool right = (ii == p.getX() + p.getsprite().width - 1);
+								bool up = (jj == p.getY());
+								bool down = (jj == p.getY() + p.getsprite().height - 1);
 
-									if (left && up) { //left above
-										p.dy += p.speed * 0.01 * u * sqrt(2) / 2;
-										p.dx += p.speed * 0.01 * u * sqrt(2) / 2;
-									}
-									else if (right && up) { // right above
-										p.dy += p.speed * 0.01 * u * sqrt(2) / 2;
-										p.dx -= p.speed * 0.01 * u * sqrt(2) / 2;
+								if (left && up) { //left above
+									p.dy += p.speed * 0.01 * u * sqrt(2) / 2;
+									p.dx += p.speed * 0.01 * u * sqrt(2) / 2;
+								}
+								else if (right && up) { // right above
+									p.dy += p.speed * 0.01 * u * sqrt(2) / 2;
+									p.dx -= p.speed * 0.01 * u * sqrt(2) / 2;
 
-									}
-									else if (left && down) { // left bottom
-										p.dy -= p.speed * 0.01 * u * sqrt(2) / 2;
-										p.dx += p.speed * 0.01 * u * sqrt(2) / 2;
-									}
-									else if (right && down) { // right bottom
-										p.dy -= p.speed * 0.01 * u * sqrt(2) / 2;
-										p.dx -= p.speed * 0.01 * u * sqrt(2) / 2;
-									}
-									else if (up) { //above
-										p.dy += p.speed * 0.01 * u;
-									}
-									else if (down) { //bottom
-										p.dy -= p.speed * 0.01 * u;
-									}
-									else if (left) { //left
-										p.dx += p.speed * 0.01 * u;
-									}
-									else if (right) { //right
-										p.dx -= p.speed * 0.01 * u;
-									}
+								}
+								else if (left && down) { // left bottom
+									p.dy -= p.speed * 0.01 * u * sqrt(2) / 2;
+									p.dx += p.speed * 0.01 * u * sqrt(2) / 2;
+								}
+								else if (right && down) { // right bottom
+									p.dy -= p.speed * 0.01 * u * sqrt(2) / 2;
+									p.dx -= p.speed * 0.01 * u * sqrt(2) / 2;
+								}
+								else if (up) { //above
+									p.dy += p.speed * 0.01 * u;
+								}
+								else if (down) { //bottom
+									p.dy -= p.speed * 0.01 * u;
+								}
+								else if (left) { //left
+									p.dx += p.speed * 0.01 * u;
+								}
+								else if (right) { //right
+									p.dx -= p.speed * 0.01 * u;
 								}
 							}
 						}
@@ -777,10 +792,13 @@ public:
 				}
 			}
 		}
+
 		return col;
 	}
 
-
+	int getsizex() { return worldsizeX; }
+	int getsizey() { return worldsizeY; }
+	tileset& gettileset() { return tiles; }
 };
 
 
@@ -827,13 +845,17 @@ int main() {
 
 	// Create the world map
 
+	// Worlds
+
 	//from file
 	//world w("world.txt");
 
 	//random
-	world w(100, 100); // creating world map
-	w.savemapseed("world.txt"); // save the seed
+	world w0(1000, 1000, 0);
+	w0.savemapseed("world0.txt"); // save the seed
 
+	world w1(1000, 1000, 1);
+	w1.savemapseed("world1.txt"); // save the seed
 
 	// creating Player with its initial position, health and speed
 	Player p("Resources/Player1.png", canvas.getWidth() / 2, canvas.getHeight() / 2, 0);
@@ -851,7 +873,16 @@ int main() {
 	float Game_time = 0.0f;
 
 	// world position(left up corner)
-	int wx = 0; int wy = 0;
+	int wx[LEVELNUM] = { 0,0 };
+	int wy[LEVELNUM] = { 0,0 };
+
+	//center the canvas on map
+	wx[0] = w0.getsizex() * w0.gettileset()[0].getwidth() / 2;
+	wy[0] = w0.getsizey() * w0.gettileset()[0].getheight() / 2;
+	wx[1] = w1.getsizex() * w1.gettileset()[0].getwidth() / 2;
+	wy[1] = w1.getsizey() * w1.gettileset()[0].getheight() / 2;
+	// game level start from 0
+	int level = 1;
 
 	// main game loop
 	while (run)
@@ -872,21 +903,28 @@ int main() {
 		//Keypress game logic update
 		if (canvas.keyPressed(VK_ESCAPE)) break;  // ESC to quit the game
 
-		int level = 0; // game level start from 0
-
 		if (level == 0) {
-			w.collisionplayer(canvas, p, wx, wy, u, level);
-			p.update(canvas, wx, wy, u, level);
-			s.update(canvas, p, wx, wy, dt, u);
+			//WASD Player move ,set speed with consider of the scale
+			w0.collisionplayer(canvas, p, wx[level], wy[level], u);
+			p.update(canvas, wx[level], wy[level], u);
+			s.update(canvas, p, wx[level], wy[level], dt, u);
+
+			// draw the frame
+			w0.draw(canvas, wx[level], wy[level]);
+			s.draw(canvas);
+			p.draw(canvas);
 		}
-		//WASD Player move ,set speed with consider of the scale
+		else if (level == 1) {
+			w1.collisionplayer(canvas, p, wx[level], wy[level], u);
+			p.update(canvas, wx[level], wy[level], u);
+			s.update(canvas, p, wx[level], wy[level], dt, u);
 
+			// draw the frame
+			w1.draw(canvas, wx[level], wy[level]);
+			s.draw(canvas);
+			p.draw(canvas);
+		}
 
-
-		// draw the frame
-		w.draw(canvas, wx, wy, level);
-		s.draw(canvas);
-		p.draw(canvas);
 
 		// display the frame drawn to the canvas created
 		canvas.present();
@@ -898,7 +936,7 @@ int main() {
 		Game_time += dt;
 
 		// in game show every
-		if (secondcount >= INGAMESHOW || canvas.Mousepressed(2)) {
+		if (secondcount >= INGAMESHOW || canvas.mouseButtonPressed(MouseRight)) {
 
 			//FPS
 			int FPS = framecount / secondcount;
