@@ -11,8 +11,10 @@ using namespace GamesEngineeringBase;
 
 //game const
 const unsigned int LEVELNUM = 2; // total level number
-const unsigned int LEVELTIME[LEVELNUM] = { 120,120 }; //level time length in second
+const unsigned int LEVELTIME[LEVELNUM] = { 10,10 }; //level time length in second
 const bool LEVELMAPINF[LEVELNUM] = { true,false };//level map infinity
+const unsigned int HORIBOND = 50; // horizontal bondwidth for finitemap
+const unsigned int VERTIBOND = 50;
 const unsigned int INGAMESHOW = 5; //time gap for in game show
 const unsigned int RESOURCENUM = 9; //default tileset size
 const float SCALE = 1; //scale of the window,with modified character size and speed
@@ -23,11 +25,11 @@ const int OUTMARGIN = 2000; // range for the npc to spawn outside the cancas
 const float SPAWNGAP = 1.0f; //initial spawn time gap
 const float SPAWNACC = 0.2f; // spawn accelerate gap
 const float MINSPAWNGAP = 0.5f; // MIN spawn gap
-const int MAXNUM = 20;
+const int MAXNUM = 20; // max number of NPC allow exist
 
 //character const
 const unsigned int PLAYERMAXHEALTH[1] = { 10 };
-const float PLAYERSPEED[1] = { 65 };
+const float PLAYERSPEED[1] = { 650 };
 const unsigned int NPCMAXHEALTH[4] = { 10 , 10 , 10 , 10 };
 const float NPCSPEED[4] = { 55 , 50 , 40 , 0 };
 
@@ -138,16 +140,26 @@ public:
 
 };
 
-// Game character classes
-class Character {
+// array add template
+template<typename T>
+T sumarr(T* arr, int size) {
+	T sum = 0;
+	for (int i = 0; i < size; i++) {
+		sum += arr[i];
+	}
+	return sum;
+}
+
+// Game Sprite classes
+class Sprites {
 protected:
-	Image sprite; // charactor sprite
-	int x, y; // position of the charactor, left up corner
+	Image sprite; //  sprite
+	int x, y; // position of the sprite, left up corner
 public:
 
 
-	//constructor, load the character sprite at given position and store basic character info
-	Character(string filename, int _x, int _y) {
+	//constructor, load the sprite at given position and store basic  info
+	Sprites(string filename, int _x, int _y) {
 		sprite.load(filename);
 		x = _x - sprite.width / 2;
 		y = _y - sprite.height / 2;
@@ -173,7 +185,7 @@ public:
 
 };
 
-class Player : public Character {
+class Player : public Sprites {
 public:
 	float dx = 0; float dy = 0;
 	int cx, cy; //center postion relate to canvas
@@ -184,7 +196,7 @@ public:
 	float speed;
 	bool Powerup;
 
-	Player(string filename, int _x, int _y, int _playerindex) : Character(filename, _x, _y), playerindex(_playerindex) {
+	Player(string filename, int _x, int _y, int _playerindex) : Sprites(filename, _x, _y), playerindex(_playerindex) {
 		Powerup = false;
 		health = PLAYERMAXHEALTH[playerindex];
 		speed = PLAYERSPEED[playerindex];
@@ -194,7 +206,7 @@ public:
 		wyp = _y - sprite.height / 2;
 	}
 
-	void update(Window& canvas, int& wx, int& wy, float u, int _level) {
+	void update(Window& canvas, int& wx, int& wy, float u) {
 
 		if (canvas.keyPressed('W') && canvas.keyPressed('A')) { //left above
 			dy -= speed * 0.01 * u * sqrt(2) / 2;
@@ -264,7 +276,7 @@ public:
 
 };
 
-class NPC : public Character {
+class NPC : public Sprites {
 private:
 
 public:
@@ -277,7 +289,7 @@ public:
 	float speed;
 
 
-	NPC(string filename, int _x, int _y, int wx, int wy, int _npcindex) : Character(filename, _x, _y), npcindex(_npcindex) {
+	NPC(string filename, int _x, int _y, int wx, int wy, int _npcindex) : Sprites(filename, _x, _y), npcindex(_npcindex) {
 		health = NPCMAXHEALTH[npcindex];
 		speed = NPCSPEED[npcindex];
 		cx = _x;
@@ -342,6 +354,7 @@ public:
 			dy = 0;
 		}
 	}
+
 };
 
 // NPC spawn class
@@ -478,6 +491,11 @@ public:
 
 };
 
+// collision between Charaters,pojectiles
+class collision {
+
+};
+
 // World tile classes
 class tile {
 private:
@@ -546,7 +564,7 @@ private:
 	string tiletype;
 public:
 
-	world(Window& canvas, unsigned int _worldsizeX, unsigned int _worldsizeY, int _level, string _tiletype = "") {
+	world(unsigned int _worldsizeX, unsigned int _worldsizeY, int _level, string _tiletype = "t") {
 		if (LEVELMAPINF[_level] == true) {
 			worldsizeX = _worldsizeX;
 			worldsizeY = _worldsizeY;
@@ -566,8 +584,8 @@ public:
 			}
 		}
 		else {
-			int caw = canvas.getWidth() / tiles[0].getwidth();
-			int cah = canvas.getHeight() / tiles[0].getheight();
+			int caw = HORIBOND;
+			int cah = VERTIBOND;
 			worldsizeX = _worldsizeX + caw * 2;
 			worldsizeY = _worldsizeY + cah * 2;
 			tiletype = _tiletype;
@@ -587,13 +605,12 @@ public:
 			}
 
 			// world in the middle
-			for (unsigned int i = caw; i < worldsizeX - caw; i++) {
-				for (unsigned int j = cah; j < worldsizeY - cah; j++) {
-					mapseed[i][j] = randomtileindex();;
+			for (unsigned int i = caw; i < (worldsizeX - caw); i++) {
+				for (unsigned int j = cah; j < (worldsizeY - cah); j++) {
+					mapseed[i][j] = randomtileindex();
 				}
 			}
 		}
-
 	}
 
 	//load world map from file
@@ -693,51 +710,30 @@ public:
 		return tileindex;
 	}
 
-	void draw(Window& canvas, int wx, int wy, int _level) {
+	void draw(Window& canvas, int wx, int wy) {
 		int tilewidth = tiles[0].getwidth(); // get the standard width for this tileset
 		int tileheight = tiles[0].getheight(); // get the standard height for this tileset
 		int nw = canvas.getWidth() / tilewidth; //number of tiles can be put in width
 		int nh = canvas.getHeight() / tileheight; //number of tiles can be put in height
-		int X; int Y;// which tile wx wy is on
-		int offsetx; int offsety;
-		if (LEVELMAPINF[_level] == true) {
 
-			X = wx / tilewidth; // which tile wx is on
-			Y = wy / tileheight; // which tile wy is on
-			offsetx = wx % tilewidth;
-			offsety = wy % tileheight;
 
-			for (int i = -1; i < nw + 1; i++) { // [-1,1] so there is no black gap when it touch the edge
-				for (int j = -1; j < nh + 1; j++) {
-					int currentX = (X + i) % worldsizeX;//which tiles to be draw, mod the maxsize to make it loop
-					int currentY = (Y + j) % worldsizeX;
-					int drawX = i * tilewidth - offsetx; // first draw consider the firsr tile with offset value, then add the rest based on where it is on the axis
-					int drawY = j * tileheight - offsety;
-					tiles[mapseed[currentX][currentY]].draw(canvas, drawX, drawY);
-				}
+		int X = wx / tilewidth; // which tile wx is on
+		int Y = wy / tileheight; // which tile wy is on
+		int offsetx = wx % tilewidth;
+		int offsety = wy % tileheight;
+
+
+		for (int i = -1; i < nw + 1; i++) { // [-1,1] so there is no black gap when it touch the edge
+			for (int j = -1; j < nh + 1; j++) {
+				int currentX = (X + i) % worldsizeX;//which tiles to be draw, mod the maxsize to make it loop
+				int currentY = (Y + j) % worldsizeX;
+				int drawX = i * tilewidth - offsetx; // first draw consider the firsr tile with offset value, then add the rest based on where it is on the axis
+				int drawY = j * tileheight - offsety;
+				tiles[mapseed[currentX][currentY]].draw(canvas, drawX, drawY);
 			}
 		}
-		else {
 
-			// put the canvas at the center of the map
-			int initialoffsetwx = wx + (worldsizeX * tilewidth / 2 - canvas.getWidth() / 2);
-			int initialoffsetwy = wy + (worldsizeY * tileheight / 2 - canvas.getHeight() / 2);
 
-			X = initialoffsetwx / tilewidth; // which tile wx is on
-			Y = initialoffsetwy / tileheight; // which tile wy is on
-			offsetx = initialoffsetwx % tilewidth;
-			offsety = initialoffsetwy % tileheight;
-
-			for (int i = -1; i < nw + 1; i++) { // [-1,1] so there is no black gap when it touch the edge
-				for (int j = -1; j < nh + 1; j++) {
-					int currentX = (X + i);//which tiles to be draw,
-					int currentY = (Y + j);
-					int drawX = i * tilewidth - offsetx; // first draw consider the firsr tile with offset value, then add the rest based on where it is on the axis
-					int drawY = j * tileheight - offsety;
-					tiles[mapseed[currentX][currentY]].draw(canvas, drawX, drawY);
-				}
-			}
-		}
 
 	}
 
@@ -816,7 +812,9 @@ public:
 		return col;
 	}
 
-
+	int getsizex() { return worldsizeX; }
+	int getsizey() { return worldsizeY; }
+	tileset& gettileset() { return tiles; }
 };
 
 // In game functions
@@ -840,14 +838,7 @@ void loadgame(unsigned int _slot = 1) {
 	load.close();
 }
 
-// other functions
-int sumintarr(int* arr, int size) {
-	int sum = 0;
-	for (int i = 0; i < size; i++) {
-		sum += arr[i];
-	}
-	return sum;
-}
+
 
 // main funtion
 int main() {
@@ -862,20 +853,17 @@ int main() {
 
 	// Create the world map
 
-
-
-	// worlds
+	// Worlds
 
 	//from file
 	//world w("world.txt");
 
-	world w0(canvas, 1000, 1000, 0);
+	//random
+	world w0(1000, 1000, 0);
 	w0.savemapseed("world0.txt"); // save the seed
 
-	world w1(canvas, 15, 15, 1);
-	w1.savemapseed("world1.txt");
-
-
+	world w1(1000, 1000, 1);
+	w1.savemapseed("world1.txt"); // save the seed
 
 	// creating Player with its initial position, health and speed
 	Player p("Resources/Player1.png", canvas.getWidth() / 2, canvas.getHeight() / 2, 0);
@@ -890,14 +878,25 @@ int main() {
 
 	//for final FPS
 	int overframecount = 0;
-	float Game_time = 0.0f;
+	float Game_time[LEVELNUM] = { 0.0f,0.0f };
 
 	// world position(left up corner)
-	int wx = 0; int wy = 0;
+	int wx[LEVELNUM] = { 0,0 };
+	int wy[LEVELNUM] = { 0,0 };
+
+	//center the canvas on map
+	wx[0] = w0.getsizex() * w0.gettileset()[0].getwidth() / 2;
+	wy[0] = w0.getsizey() * w0.gettileset()[0].getheight() / 2;
+	wx[1] = w1.getsizex() * w1.gettileset()[0].getwidth() / 2;
+	wy[1] = w1.getsizey() * w1.gettileset()[0].getheight() / 2;
+
+	// game level start from 0
+	int level = 0;
 
 	// main game loop
 	while (run)
 	{
+		bool gameover = false;
 		canvas.checkInput(); // detect the input
 		canvas.clear(); //clear this frame for next frame to be drawn
 
@@ -914,41 +913,59 @@ int main() {
 		//Keypress game logic update
 		if (canvas.keyPressed(VK_ESCAPE)) break;  // ESC to quit the game
 
-		int level = 0; // game level start from 0
-
 		if (level == 0) {
-
 			//WASD Player move ,set speed with consider of the scale
-			w0.collisionplayer(canvas, p, wx, wy, u);
-			p.update(canvas, wx, wy, u, level);
-			s.update(canvas, p, wx, wy, dt, u);
+			w0.collisionplayer(canvas, p, wx[level], wy[level], u);
+			p.update(canvas, wx[level], wy[level], u);
+			s.update(canvas, p, wx[level], wy[level], dt, u);
 
 			// draw the frame
-			w0.draw(canvas, wx, wy, level);
+			w0.draw(canvas, wx[level], wy[level]);
 			s.draw(canvas);
 			p.draw(canvas);
 
+			Game_time[level] += dt;
+			if (Game_time[level] >= LEVELTIME[level]) {
+				cout << "LEVEL " << level << " CLEAR!" << endl;
+				if (level < LEVELNUM - 1) {
+					cout << "LEVEL " << level + 1 << " START!" << endl;
+				}
+				level++;
+			}
 		}
 		else if (level == 1) {
-			w1.collisionplayer(canvas, p, wx, wy, u);
-			p.update(canvas, wx, wy, u, level);
-			s.update(canvas, p, wx, wy, dt, u);
+			w1.collisionplayer(canvas, p, wx[level], wy[level], u);
+			p.update(canvas, wx[level], wy[level], u);
+			s.update(canvas, p, wx[level], wy[level], dt, u);
 
 			// draw the frame
-			w1.draw(canvas, wx, wy, level);
+			w1.draw(canvas, wx[level], wy[level]);
 			s.draw(canvas);
 			p.draw(canvas);
+
+			Game_time[level] += dt;
+			if (Game_time[level] >= LEVELTIME[level]) {
+				cout << "LEVEL " << level << " CLEAR!" << endl;
+				if (level < LEVELNUM - 1) {
+					cout << "LEVEL " << level + 1 << " START!" << endl;
+				}
+				level++;
+			}
 		}
 
 
-		// display the frame drawn to the canvas created
-		canvas.present();
+
+		if (level > LEVELNUM - 1) { gameover = true; }// all level done 
+
+		if (gameover == true) {
+			run = false;
+			break;
+		}
 
 		// update for each frame
 		framecount++;
 		secondcount += dt;
 		overframecount++;
-		Game_time += dt;
 
 		// in game show every
 		if (secondcount >= INGAMESHOW || canvas.mouseButtonPressed(MouseRight)) {
@@ -958,20 +975,13 @@ int main() {
 			cout << "FPS:" << FPS << endl;
 			framecount = 0;
 
-			//time
-			cout << "Time passed: " << static_cast<int>(Game_time) << "s" << endl;
-
 			//score
 
 			secondcount = 0;
 		}
 
-
-		// for average FPS
-		if (Game_time >= LEVELTIME[0]) {
-			break;
-		}
-
+		// display the frame drawn to the canvas created
+		canvas.present();
 	}
 
 	// End game show
@@ -982,26 +992,27 @@ int main() {
 
 	cout << "Detail:" << endl;
 
-	cout << "NPC generated: " << sumintarr(s.generated, 4) << "\t";
+	cout << "NPC generated: " << sumarr<int>(s.generated, 4) << "\t";
 	cout << "type0 (" << s.generated[0] << ")" << "\t";
 	cout << "type1 (" << s.generated[1] << ")" << "\t";
 	cout << "type2 (" << s.generated[2] << ")" << "\t";
 	cout << "type3 (" << s.generated[3] << ")" << endl;
 
-	cout << "NPC defeated: " << sumintarr(s.defeated, 4) << "\t";
+	cout << "NPC defeated: " << sumarr<int>(s.defeated, 4) << "\t";
 	cout << "type0 (" << s.defeated[0] << ")" << "\t";
 	cout << "type1 (" << s.defeated[1] << ")" << "\t";
 	cout << "type2 (" << s.defeated[2] << ")" << "\t";
 	cout << "type3 (" << s.defeated[3] << ")" << endl;
 
-	cout << "NPC outranged: " << sumintarr(s.outrange, 4) << "\t";
+	cout << "NPC outranged: " << sumarr<int>(s.outrange, 4) << "\t";
 	cout << "type0 (" << s.outrange[0] << ")" << "\t";
 	cout << "type1 (" << s.outrange[1] << ")" << "\t";
 	cout << "type2 (" << s.outrange[2] << ")" << "\t";
 	cout << "type3 (" << s.outrange[3] << ")" << endl;
 
 
-	int FPS = overframecount / Game_time;
+	cout << "Game time: " << sumarr<float>(Game_time, LEVELNUM) << "s" << endl;
+	int FPS = overframecount / sumarr<float>(Game_time, LEVELNUM);
 	cout << "Average FPS: " << FPS << endl;
 
 	//system("pause"); // prevent auto quit when game is over

@@ -11,7 +11,7 @@ using namespace GamesEngineeringBase;
 
 //game const
 const unsigned int LEVELNUM = 2; // total level number
-const unsigned int LEVELTIME[LEVELNUM] = { 10,10 }; //level time length in second
+const unsigned int LEVELTIME[LEVELNUM] = { 120,120 }; //level time length in second
 const bool LEVELMAPINF[LEVELNUM] = { true,false };//level map infinity
 const unsigned int HORIBOND = 50; // horizontal bondwidth for finitemap
 const unsigned int VERTIBOND = 50;
@@ -28,10 +28,14 @@ const float MINSPAWNGAP = 0.5f; // MIN spawn gap
 const int MAXNUM = 20; // max number of NPC allow exist
 
 //character const
-const unsigned int PLAYERMAXHEALTH[1] = { 10 };
+//health
+const unsigned int PLAYERMAXHEALTH[1] = { 1000 };
+const unsigned int NPCMAXHEALTH[4] = { 1000 , 1000 , 1000 , 3000 };
+//speed
 const float PLAYERSPEED[1] = { 650 };
-const unsigned int NPCMAXHEALTH[4] = { 10 , 10 , 10 , 10 };
 const float NPCSPEED[4] = { 55 , 50 , 40 , 0 };
+const int PROSPEED = 100;
+const int NPCSCORE[4] = { 5,10,15,20 };
 
 // double linked list template
 template <typename T>
@@ -150,7 +154,7 @@ T sumarr(T* arr, int size) {
 	return sum;
 }
 
-// Game Sprite classes
+// Game Sprites classes
 class Sprites {
 protected:
 	Image sprite; //  sprite
@@ -185,6 +189,7 @@ public:
 
 };
 
+// Player 
 class Player : public Sprites {
 public:
 	float dx = 0; float dy = 0;
@@ -276,6 +281,7 @@ public:
 
 };
 
+// NPC
 class NPC : public Sprites {
 private:
 
@@ -283,6 +289,7 @@ public:
 	float dx = 0; float dy = 0;
 	int cx, cy; // center position relate to canvas
 	int wxi, wyi; // postion on the world
+	float length = 100000; // distance to the player, initial with a big positive number to avoid problem, update later
 
 	int npcindex;
 	int health;
@@ -311,13 +318,13 @@ public:
 		int px = p.getcX(); int py = p.getcY(); //  player world position
 		int difx = px - cx;
 		int dify = py - cy;
-		float length = sqrt(difx * difx + dify * dify);
+		length = sqrt(difx * difx + dify * dify);
 
 		if (npcindex != 3) { // skip static one 
 
 			// always towards player
 			float ux = 0.0f; float uy = 0.0f; // direction scaler
-			if (length != 0) {
+			if (length >= (p.getsprite().width + getsprite().width) / 2) {
 				ux = difx / length;
 				uy = dify / length;
 			}
@@ -491,8 +498,57 @@ public:
 
 };
 
+// Projectiles
+class Projectile : public Sprites {
+
+public:
+	float dx = 0; float dy = 0;
+	int cx, cy; // center position relate to canvas
+	int wxpr, wypr; // postion on the world
+
+	int proindex;
+	float speed = PROSPEED;
+
+	Projectile(string filename, int _x, int _y, int wx, int wy, int _proindex) : Sprites(filename, _x, _y), proindex(_proindex) {
+
+		cx = _x;
+		cy = _y;
+		wxpr = cx + wx; //stay the same on the map unless self move
+		wypr = cy + wy;
+	}
+
+	int getcX() { return cx; }
+	int getcY() { return cy; }
+
+};
+
+class Porjectilemanage {
+
+};
+
 // collision between Charaters,pojectiles
 class collision {
+private:
+	float pvninterval = 1.1f;
+public:
+
+	collision() {}
+
+	void pvn(Player& p, Spawn& s, float dt) {
+
+		node<NPC*>* current = s.npc.gethead();
+		while (current != nullptr) {
+			node<NPC*>* next = current->next;
+			if (current->data->length <= (p.getsprite().width + current->data->getsprite().width) / 2) {
+				p.health--;
+				current->data->health--;
+			}
+			current = next;
+		}
+
+
+	}
+
 
 };
 
@@ -859,18 +915,20 @@ int main() {
 	//world w("world.txt");
 
 	//random
-	world w0(1000, 1000, 0);
+	world w0(100, 100, 0);
 	w0.savemapseed("world0.txt"); // save the seed
 
-	world w1(1000, 1000, 1);
+	world w1(100, 100, 1);
 	w1.savemapseed("world1.txt"); // save the seed
 
 	// creating Player with its initial position, health and speed
 	Player p("Resources/Player1.png", canvas.getWidth() / 2, canvas.getHeight() / 2, 0);
 
-
 	// Random spawn NPC 
 	Spawn s;
+
+	// Collision
+	collision c;
 
 	// for in game show FPS
 	int framecount = 0;
@@ -913,9 +971,12 @@ int main() {
 		//Keypress game logic update
 		if (canvas.keyPressed(VK_ESCAPE)) break;  // ESC to quit the game
 
+		if (p.health <= 0) { gameover = true; } // detect player health
+
 		if (level == 0) {
 			//WASD Player move ,set speed with consider of the scale
 			w0.collisionplayer(canvas, p, wx[level], wy[level], u);
+			c.pvn(p, s, dt);
 			p.update(canvas, wx[level], wy[level], u);
 			s.update(canvas, p, wx[level], wy[level], dt, u);
 
@@ -988,7 +1049,9 @@ int main() {
 	cout << endl << endl;
 	cout << "GAME OVER" << endl;
 	cout << "THANKS FOR PLAYING" << endl;
-	cout << "Your overall score is: " << endl;
+	cout << "LEVEL CLEARED: " << level << endl;
+	int score = 10;
+	cout << "SCORE: " << score << endl;
 
 	cout << "Detail:" << endl;
 
