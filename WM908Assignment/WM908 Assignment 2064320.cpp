@@ -529,7 +529,6 @@ class Porjectilemanage {
 // collision between Charaters,pojectiles
 class collision {
 private:
-	float pvninterval = 1.1f;
 public:
 
 	collision() {}
@@ -960,8 +959,6 @@ int main() {
 
 
 		float dt = timer.dt(); //get dt value
-		//cout << dt;
-		//float u = 1 + 500 * dt; //create a unit for moving
 		float u = 2 + 2 * sin(100 * dt); //create a unit for moving
 		//this value would reflect the change of dt so smoother
 		//use sin in order to restrict the value oscillate around 1 based on dt value, and for all dt [0,1],this would work

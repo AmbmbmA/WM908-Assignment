@@ -21,8 +21,8 @@ const float SCALE = 1; //scale of the window,with modified character size and sp
 
 //Spawn const
 const int INMARGIN = 100; // range for the npc to spawn outside the cancas
-const int OUTMARGIN = 2000; // range for the npc to spawn outside the cancas
-const float SPAWNGAP = 1.0f; //initial spawn time gap
+const int OUTMARGIN = 3000; // range for the npc to spawn outside the cancas
+const float SPAWNGAP = 2.0f; //initial spawn time gap
 const float SPAWNACC = 0.2f; // spawn accelerate gap
 const float MINSPAWNGAP = 0.5f; // MIN spawn gap
 const int MAXNUM = 20; // max number of NPC allow exist
@@ -32,9 +32,9 @@ const int MAXNUM = 20; // max number of NPC allow exist
 const unsigned int PLAYERMAXHEALTH[1] = { 1000 };
 const unsigned int NPCMAXHEALTH[4] = { 1000 , 1000 , 1000 , 3000 };
 //speed
-const float PLAYERSPEED[1] = { 650 };
+const float PLAYERSPEED[1] = { 65 };
 const float NPCSPEED[4] = { 55 , 50 , 40 , 0 };
-const int PROSPEED = 100;
+const int PROSPEED[2] = { 100,100 };
 const int NPCSCORE[4] = { 5,10,15,20 };
 
 // double linked list template
@@ -505,9 +505,10 @@ public:
 	float dx = 0; float dy = 0;
 	int cx, cy; // center position relate to canvas
 	int wxpr, wypr; // postion on the world
+	float length = 100000; 
 
 	int proindex;
-	float speed = PROSPEED;
+	float speed;
 
 	Projectile(string filename, int _x, int _y, int wx, int wy, int _proindex) : Sprites(filename, _x, _y), proindex(_proindex) {
 
@@ -515,10 +516,62 @@ public:
 		cy = _y;
 		wxpr = cx + wx; //stay the same on the map unless self move
 		wypr = cy + wy;
+		speed = PROSPEED[proindex];
 	}
 
 	int getcX() { return cx; }
 	int getcY() { return cy; }
+
+	void update(Window& canvas, int targetx,int targety, int wx, int wy, float u) {
+		// update xy based on the change of world
+		x += wxpr - wx - cx;
+		y += wypr - wy - cy;
+		cx = wxpr - wx;
+		cy = wypr - wy;
+
+		int difx = targetx - cx;
+		int dify = targety - cy;
+		length = sqrt(difx * difx + dify * dify);
+
+		// always towards target
+		float ux = 0.0f; float uy = 0.0f; // direction scaler
+		if (length >= 5) {
+			ux = difx / length;
+			uy = dify / length;
+		}
+
+		float _dx = speed * 0.01f * ux * u;
+		float _dy = speed * 0.01f * uy * u;
+
+		dx += _dx;
+		dy += _dy;
+		
+
+		if (dx >= 3) {
+			x += 3;
+			cx += 3;
+			wxpr += 3;
+			dx = 0;
+		}
+		if (dx <= -3) {
+			x -= 3;
+			cx -= 3;
+			wxpr -= 3;
+			dx = 0;
+		}
+		if (dy >= 3) {
+			y += 3;
+			cy += 3;
+			wypr += 3;
+			dy = 0;
+		}
+		if (dy <= -3) {
+			y -= 3;
+			cy -= 3;
+			wypr -= 3;
+			dy = 0;
+		}
+	}
 
 };
 
@@ -529,7 +582,6 @@ class Porjectilemanage {
 // collision between Charaters,pojectiles
 class collision {
 private:
-	float pvninterval = 1.1f;
 public:
 
 	collision() {}
@@ -925,7 +977,8 @@ int main() {
 	Player p("Resources/Player1.png", canvas.getWidth() / 2, canvas.getHeight() / 2, 0);
 
 	// Random spawn NPC 
-	Spawn s;
+	Spawn s0;
+	Spawn s1;
 
 	// Collision
 	collision c;
@@ -960,8 +1013,6 @@ int main() {
 
 
 		float dt = timer.dt(); //get dt value
-		//cout << dt;
-		//float u = 1 + 500 * dt; //create a unit for moving
 		float u = 2 + 2 * sin(100 * dt); //create a unit for moving
 		//this value would reflect the change of dt so smoother
 		//use sin in order to restrict the value oscillate around 1 based on dt value, and for all dt [0,1],this would work
@@ -971,18 +1022,18 @@ int main() {
 		//Keypress game logic update
 		if (canvas.keyPressed(VK_ESCAPE)) break;  // ESC to quit the game
 		
-		if (p.health <= 0) { gameover = true; } // detect player health
+		//if (p.health <= 0) { gameover = true; } // detect player health
 
 		if (level == 0) {
 			//WASD Player move ,set speed with consider of the scale
 			w0.collisionplayer(canvas, p, wx[level], wy[level], u);
-			c.pvn(p, s,dt);
+			c.pvn(p, s0,dt);
 			p.update(canvas, wx[level], wy[level], u);
-			s.update(canvas, p, wx[level], wy[level], dt, u);
+			s0.update(canvas, p, wx[level], wy[level], dt, u);
 
 			// draw the frame
 			w0.draw(canvas, wx[level], wy[level]);
-			s.draw(canvas);
+			s0.draw(canvas);
 			p.draw(canvas);
 
 			Game_time[level] += dt;
@@ -996,13 +1047,14 @@ int main() {
 		}
 		else if (level == 1) {
 			w1.collisionplayer(canvas, p, wx[level], wy[level], u);
+			c.pvn(p, s1, dt);
 			p.update(canvas, wx[level], wy[level], u);
-			s.update(canvas, p, wx[level], wy[level], dt, u);
+			s1.update(canvas, p, wx[level], wy[level], dt, u);
 
 			// draw the frame
 			w1.draw(canvas, wx[level], wy[level]);
-			s.draw(canvas);
 			p.draw(canvas);
+			s1.draw(canvas);
 
 			Game_time[level] += dt;
 			if (Game_time[level] >= LEVELTIME[level]) {
@@ -1055,26 +1107,26 @@ int main() {
 
 	cout << "Detail:" << endl;
 
-	cout << "NPC generated: " << sumarr<int>(s.generated, 4) << "\t";
-	cout << "type0 (" << s.generated[0] << ")" << "\t";
-	cout << "type1 (" << s.generated[1] << ")" << "\t";
-	cout << "type2 (" << s.generated[2] << ")" << "\t";
-	cout << "type3 (" << s.generated[3] << ")" << endl;
+	//cout << "NPC generated: " << sumarr<int>(s.generated, 4) << "\t";
+	//cout << "type0 (" << s.generated[0] << ")" << "\t";
+	//cout << "type1 (" << s.generated[1] << ")" << "\t";
+	//cout << "type2 (" << s.generated[2] << ")" << "\t";
+	//cout << "type3 (" << s.generated[3] << ")" << endl;
 
-	cout << "NPC defeated: " << sumarr<int>(s.defeated, 4) << "\t";
-	cout << "type0 (" << s.defeated[0] << ")" << "\t";
-	cout << "type1 (" << s.defeated[1] << ")" << "\t";
-	cout << "type2 (" << s.defeated[2] << ")" << "\t";
-	cout << "type3 (" << s.defeated[3] << ")" << endl;
+	//cout << "NPC defeated: " << sumarr<int>(s.defeated, 4) << "\t";
+	//cout << "type0 (" << s.defeated[0] << ")" << "\t";
+	//cout << "type1 (" << s.defeated[1] << ")" << "\t";
+	//cout << "type2 (" << s.defeated[2] << ")" << "\t";
+	//cout << "type3 (" << s.defeated[3] << ")" << endl;
 
-	cout << "NPC outranged: " << sumarr<int>(s.outrange, 4) << "\t";
-	cout << "type0 (" << s.outrange[0] << ")" << "\t";
-	cout << "type1 (" << s.outrange[1] << ")" << "\t";
-	cout << "type2 (" << s.outrange[2] << ")" << "\t";
-	cout << "type3 (" << s.outrange[3] << ")" << endl;
+	//cout << "NPC outranged: " << sumarr<int>(s.outrange, 4) << "\t";
+	//cout << "type0 (" << s.outrange[0] << ")" << "\t";
+	//cout << "type1 (" << s.outrange[1] << ")" << "\t";
+	//cout << "type2 (" << s.outrange[2] << ")" << "\t";
+	//cout << "type3 (" << s.outrange[3] << ")" << endl;
 
 
-	cout << "Game time: " << sumarr<float>(Game_time, LEVELNUM) << "s" << endl;
+	cout << "Game time: " << static_cast<int>(sumarr<float>(Game_time, LEVELNUM)) << "s" << endl;
 	int FPS = overframecount / sumarr<float>(Game_time, LEVELNUM);
 	cout << "Average FPS: " << FPS << endl;
 
