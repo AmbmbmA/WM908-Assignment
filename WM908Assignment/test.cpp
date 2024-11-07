@@ -11,7 +11,7 @@ using namespace GamesEngineeringBase;
 
 //game const
 const unsigned int LEVELNUM = 2; // total level number
-const unsigned int LEVELTIME[LEVELNUM] = { 5,120 }; //level time length in second
+const unsigned int LEVELTIME[LEVELNUM] = { 120,120 }; //level time length in second
 const bool LEVELMAPINF[LEVELNUM] = { true,false };//level map infinity
 const unsigned int HORIBOND = 50; // horizontal bondwidth for finitemap
 const unsigned int VERTIBOND = 50;
@@ -291,6 +291,30 @@ public:
 	int getcX() { return cx; }
 	int getcY() { return cy; }
 
+	void save(ofstream& save) {
+		save << "Player" << endl;
+		save << dx << endl;
+		save << dy << endl;
+		save << wxp << endl;
+		save << wyp << endl;
+		save << health << endl;
+		save << shootgap << endl;
+
+	}
+
+	void load(ifstream& load) {
+		string head = "";
+		while (head != "Player") {
+			load >> head;
+		}
+		load >> dx;
+		load >> dy;
+		load >> wxp;
+		load >> wyp;
+		load >> health;
+		load >> shootgap;
+	}
+
 };
 
 // NPC
@@ -374,6 +398,22 @@ public:
 			dy = 0;
 		}
 	}
+
+	void save(ofstream& save, int count) {
+		save << "NPC" << count << endl;
+		save << npcindex << endl;
+		save << dx << endl;
+		save << dy << endl;
+		save << cx << endl;
+		save << cy << endl;
+		save << wxi << endl;
+		save << wyi << endl;
+		save << length << endl;
+		save << health << endl;
+
+	}
+
+
 
 };
 
@@ -483,6 +523,19 @@ public:
 
 	~Spawn() { npc.~DBLL(); } // free the double linked list
 
+	void pvn(Player& p) {
+
+		node<NPC*>* current = npc.gethead();
+		while (current != nullptr) {
+			node<NPC*>* next = current->next;
+			if (current->data->length <= (p.getsprite().width + current->data->getsprite().width) / 2) {
+				p.health -= CRASH;
+				current->data->health -= CRASH;
+			}
+			current = next;
+		}
+	}
+
 	// update position of npc
 	void update(Window& canvas, Player& p, int wx, int wy, float dt, float u) {
 		generate(canvas, p, wx, wy, dt);
@@ -507,6 +560,55 @@ public:
 		}
 	}
 
+	void save(ofstream& save) {
+		save << "SPAWN" << endl;
+		save << timeElapsed << endl;
+		save << npc.getsize() << endl;
+		node<NPC*>* current = npc.gethead();
+		int count = 0;
+		while (current != nullptr) {
+			node<NPC*>* next = current->next;
+			current->data->save(save, count);
+			count++;
+			npc.remove(current);
+			current = next;
+		}
+
+	}
+
+	void npcload(ifstream& load, int count) {
+		string head = "";
+		while (head != "NPC" + to_string(count)) {
+			load >> head;
+		}
+		int npcindex;
+		load >> npcindex;
+		string filename = "Resources/npc" + to_string(npcindex) + ".png";
+		NPC* n = new NPC(filename, 0, 0, 0, 0, npcindex);
+		load >> n->dx;
+		load >> n->dy;
+		load >> n->cx;
+		load >> n->cy;
+		load >> n->wxi;
+		load >> n->wyi;
+		load >> n->length;
+		load >> n->health;
+		npc.addend(n);
+
+	}
+
+	void load(ifstream& load) {
+		string head = "";
+		while (head != "SPAWN") {
+			load >> head;
+		}
+		load >> timeElapsed;
+		int size;
+		load >> size;
+		for (int i = 0; i < size; i++) {
+			npcload(load, i);
+		}
+	}
 
 };
 
@@ -586,6 +688,22 @@ public:
 			dy = 0;
 		}
 	}
+
+	void save(ofstream& save, int count, int group) {
+		save << "PROJ" << count << "ofgroup" << group << endl;
+		save << proindex << endl;
+		save << dx << endl;
+		save << dy << endl;
+		save << cx << endl;
+		save << cy << endl;
+		save << wxpr << endl;
+		save << wypr << endl;
+		save << length << endl;
+		save << mt << endl;
+
+
+	}
+
 
 };
 
@@ -759,29 +877,120 @@ public:
 
 
 	}
-};
 
-// collision between Charaters,pojectiles
-class collision {
-public:
+	void save(ofstream& save) {
+		save << "PROJMA" << endl;
+		save << timeElapsed0 << endl;
+		save << proj0.getsize() << endl;
+		save << timeElapsed1 << endl;
+		save << proj1.getsize() << endl;
 
-	collision() {}
+		node<Projectile*>* current0 = proj0.gethead();
+		int count0 = 0;
+		while (current0 != nullptr) {
+			node<Projectile*>* next = current0->next;
+			current0->data->save(save, count0, 0);
+			count0++;
+			proj0.remove(current0);
+			current0 = next;
+		}
 
-	void pvn(Player& p, Spawn& s) {
+		node<Projectile*>* current1 = proj1.gethead();
+		int count1 = 0;
+		while (current1 != nullptr) {
+			node<Projectile*>* next = current1->next;
+			current1->data->save(save, count1, 1);
+			count1++;
+			proj1.remove(current1);
+			current1 = next;
+		}
 
-		node<NPC*>* current = s.npc.gethead();
-		while (current != nullptr) {
-			node<NPC*>* next = current->next;
-			if (current->data->length <= (p.getsprite().width + current->data->getsprite().width) / 2) {
-				p.health -= CRASH;
-				current->data->health -= CRASH;
+	}
+
+	void projload(ifstream& load, int count, int group) {
+		if (group == 0) {
+			string head = "";
+			while (head != "PROJ" + to_string(count) + "ofgroup" + to_string(group)) {
+				load >> head;
 			}
-			current = next;
+			int proindex;
+			load >> proindex;
+			string filename = "Resources/playerpro.png";
+			Projectile* proj = new Projectile(filename, 0, 0, 0, 0, proindex);
+			load >> proj->dx;
+			load >> proj->dy;
+			load >> proj->cx;
+			load >> proj->cy;
+			load >> proj->wxpr;
+			load >> proj->wypr;
+			load >> proj->length;
+			load >> proj->mt;
+			proj0.addend(proj);
+		}
+		else if (group == 1) {
+			string head = "";
+			while (head != "PROJ" + to_string(count) + "ofgroup" + to_string(group)) {
+				load >> head;
+			}
+			int proindex;
+			load >> proindex;
+			string filename = "Resources/npcpro3.png";
+			Projectile* projj = new Projectile(filename, 0, 0, 0, 0, proindex);
+			load >> projj->dx;
+			load >> projj->dy;
+			load >> projj->cx;
+			load >> projj->cy;
+			load >> projj->wxpr;
+			load >> projj->wypr;
+			load >> projj->length;
+			load >> projj->mt;
+			proj1.addend(projj);
+		}
+
+	}
+
+	void load(ifstream& load) {
+		string head = "";
+		while (head != "PROJMA") {
+			load >> head;
+		}
+		int size0, size1;
+		load >> timeElapsed0;
+		load >> size0;
+		load >> timeElapsed1;
+		load >> size1;
+
+		for (int i = 0; i < size0; i++) {
+			projload(load, i, 0);
+		}
+		for (int i = 0; i < size1; i++) {
+			projload(load, i, 1);
 		}
 	}
 
-
 };
+
+// collision between Charaters,pojectiles
+//class collision {
+//public:
+//
+//	collision() {}
+//
+//	void pvn(Player& p, Spawn& s) {
+//
+//		node<NPC*>* current = s.npc.gethead();
+//		while (current != nullptr) {
+//			node<NPC*>* next = current->next;
+//			if (current->data->length <= (p.getsprite().width + current->data->getsprite().width) / 2) {
+//				p.health -= CRASH;
+//				current->data->health -= CRASH;
+//			}
+//			current = next;
+//		}
+//	}
+//
+//
+//};
 
 // player AOE attack
 class AOE {
@@ -1365,11 +1574,12 @@ public:
 	tileset& gettileset() { return tiles; }
 };
 
-// In game functions
-void savegame(unsigned int _slot = 1) {
+// save and load
+void savegame(int _slot,world& w,Player&p,Spawn& s,Projectilemanage& proj, AOE &aoe, Powerup& pu) {
 	ofstream save;
 
 	save.open("save" + to_string(_slot), ios::out);
+
 
 
 
@@ -1377,7 +1587,7 @@ void savegame(unsigned int _slot = 1) {
 
 }
 
-void loadgame(unsigned int _slot = 1) {
+void loadgame(world& w0, world& w1, unsigned int _slot = 1) {
 	ifstream load;
 
 	load.open("save" + to_string(_slot), ios::in);
@@ -1408,7 +1618,8 @@ int main() {
 	world w0(100, 100, 0);
 	w0.savemapseed("world0.txt"); // save the seed
 
-	world w1(100, 100, 1);
+	// random generate level 2 finite world
+	world w1(100, 100, 1); // random generate level 2 finite world
 	w1.savemapseed("world1.txt"); // save the seed
 
 	// creating Player with its initial position, health and speed
@@ -1421,9 +1632,6 @@ int main() {
 	// Projectiles
 	Projectilemanage projl0;
 	Projectilemanage projl1;
-
-	// Collision
-	collision c;
 
 	// aoe
 	AOE aoe;
@@ -1481,7 +1689,7 @@ int main() {
 			if (level == 0) {
 				//WASD Player move ,set speed with consider of the scale
 				w0.collisionplayer(canvas, p, wx[level], wy[level], u);
-				c.pvn(p, s0);
+				s0.pvn(p);
 				p.update(canvas, wx[level], wy[level], u);
 				s0.update(canvas, p, wx[level], wy[level], dt, u);
 				projl0.update(canvas, p, s0, wx[level], wy[level], dt, u);
@@ -1542,7 +1750,7 @@ int main() {
 			}
 			else if (level == 1) {
 				w1.collisionplayer(canvas, p, wx[level], wy[level], u);
-				c.pvn(p, s1);
+				s1.pvn(p);
 				p.update(canvas, wx[level], wy[level], u);
 				s1.update(canvas, p, wx[level], wy[level], dt, u);
 				projl1.update(canvas, p, s1, wx[level], wy[level], dt, u);
