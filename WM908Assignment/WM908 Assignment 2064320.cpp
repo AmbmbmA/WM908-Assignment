@@ -1500,7 +1500,7 @@ int main() {
 						aoeatk = 1;
 					}
 				}
-				else if (canvas.keyPressed(VK_SPACE)) {
+				else if (canvas.keyPressed(VK_SPACE) || canvas.keyPressed('K')) {
 					if (aoe.atk(canvas, s0, p.cx, p.cy, Game_time[level])) {
 						aoeatk = 2;
 					}
@@ -1513,6 +1513,9 @@ int main() {
 				projl0.draw(canvas);
 				if (canvas.mouseButtonPressed(MouseLeft)) {
 					aoe.draw(canvas, s0, mousex, mousey);
+				}
+				else if (canvas.keyPressed('J')) {
+					aoe.draw(canvas, s0, p.cx, p.cy);
 				}
 				if (aoeatk == 1 && aoetimer <= 0.1) {
 					aoe.atkdraw1(canvas, mousex, mousey);
@@ -1558,7 +1561,7 @@ int main() {
 						aoeatk = 1;
 					}
 				}
-				else if (canvas.keyPressed(VK_SPACE)) {
+				else if (canvas.keyPressed(VK_SPACE) || canvas.keyPressed('K')) {
 					if (aoe.atk(canvas, s1, p.cx, p.cy, Game_time[level])) {
 						aoeatk = 2;
 					}
@@ -1571,6 +1574,9 @@ int main() {
 				projl1.draw(canvas);
 				if (canvas.mouseButtonPressed(MouseLeft)) {
 					aoe.draw(canvas, s1, mousex, mousey);
+				}
+				else if (canvas.keyPressed('J')) {
+					aoe.draw(canvas, s1, p.cx, p.cy);
 				}
 				if (aoeatk == 1 && aoetimer <= 0.1) {
 					aoe.atkdraw1(canvas, mousex, mousey);
