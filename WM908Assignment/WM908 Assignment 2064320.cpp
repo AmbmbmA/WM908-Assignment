@@ -24,19 +24,21 @@ const int INMARGIN = 100; // range for the npc to spawn outside the cancas
 const int OUTMARGIN = 2000; // range for the npc to spawn outside the cancas
 const float SPAWNGAP = 1.0f; //initial spawn time gap
 const float SPAWNACC = 0.04f; // spawn accelerate gap
-const float MINSPAWNGAP = 0.2f; // MIN spawn gap
+const float MINSPAWNGAP[LEVELNUM] = { 0.4f , 0.2f }; // MIN spawn gap
 const int MAXNUM = 30; // max number of NPC allow exist
 
 //character const
-
+//score
+const int MAXPLEVEL = 10;
+const int NPCSCORE[4] = { 10,20,30,40 };
+const int BASESCOREFORUP = 100;
 //health
 const unsigned int PLAYERMAXHEALTH[1] = { 3000 };
 const unsigned int NPCMAXHEALTH[4] = { 1000 , 2000 , 3000 , 4500 };
 //speed
-const float PLAYERSPEED[1] = { 65 };
+const float PLAYERSPEED[1] = { 70 };
 const float NPCSPEED[4] = { 60 , 55 , 45 , 0 };
 const int PROSPEED[2] = { 150, 30 };
-const int NPCSCORE[4] = { 5,10,15,20 };
 //atk
 const int CRASH = 1;
 const int PROJDAMAGE[2] = { 1500, 250 };
@@ -220,8 +222,12 @@ public:
 
 	int playerindex; // which player character
 	int health;
+	int plevel = 0;
+	int score = 0;
 	float speed;
 	float shootgap = 0.5f;
+
+	bool powerup = false;
 
 
 	Player(string filename, int _x, int _y, int _playerindex) : Sprites(filename, _x, _y), playerindex(_playerindex) {
@@ -233,6 +239,13 @@ public:
 		wyp = _y - sprite.height / 2;
 	}
 
+	int scoretolevelup() {
+		int scoretoup = 0;
+		for (int i = 0; i <= plevel; i++) {
+			scoretoup += BASESCOREFORUP * (i + 1);
+		}
+		return scoretoup;
+	}
 	void update(Window& canvas, int& wx, int& wy, float u) {
 
 		if (canvas.keyPressed('W') && canvas.keyPressed('A')) { //left above
@@ -286,6 +299,19 @@ public:
 			dy = 0;
 		}
 
+		if (plevel < MAXPLEVEL && score >= scoretolevelup()) {
+			cout << "Score reach " << scoretolevelup() << endl;
+			plevel += 1;
+			powerup = true;
+			cout << "PLAYER LEVEL UP --> " << plevel << endl;
+		}
+
+		if (plevel % 2 != 0 && powerup) { // powerup when odd level
+			shootgap -= 0.06;
+			cout << "SHOOT SPEED UP!" << endl;
+			powerup = false;
+		}
+
 	}
 
 	int getcX() { return cx; }
@@ -298,6 +324,8 @@ public:
 		save << wxp << endl;
 		save << wyp << endl;
 		save << health << endl;
+		save << plevel << endl;
+		save << score << endl;
 		save << shootgap << endl;
 
 	}
@@ -312,6 +340,8 @@ public:
 		load >> wxp;
 		load >> wyp;
 		load >> health;
+		load >> plevel;
+		load >> score;
 		load >> shootgap;
 	}
 
@@ -454,7 +484,7 @@ public:
 		return npcindex;
 	}
 
-	void generate(Window& canvas, Player& p, int wx, int wy, float dt) {
+	void generate(Window& canvas, Player& p, int wx, int wy, float dt, int level) {
 		timeElapsed += dt;
 		bool full = false;
 		if (npc.getsize() >= MAXNUM) {
@@ -488,10 +518,10 @@ public:
 			npc.addend(n);
 
 			timeElapsed = 0.0f; //reset
-			if (timeThreshold != MINSPAWNGAP) { // once reach limit, do not change
+			if (timeThreshold != MINSPAWNGAP[level]) { // once reach limit, do not change
 				timeThreshold -= SPAWNACC; // accelerate spawn rate
-				if (timeThreshold <= MINSPAWNGAP) {
-					timeThreshold = MINSPAWNGAP;// restrict the min gap
+				if (timeThreshold <= MINSPAWNGAP[level]) {
+					timeThreshold = MINSPAWNGAP[level];// restrict the min gap
 				}
 			}
 		}
@@ -537,8 +567,8 @@ public:
 	}
 
 	// update position of npc
-	void update(Window& canvas, Player& p, int wx, int wy, float dt, float u) {
-		generate(canvas, p, wx, wy, dt);
+	void update(Window& canvas, Player& p, int wx, int wy, float dt, float u, int level) {
+		generate(canvas, p, wx, wy, dt, level);
 
 		node<NPC*>* current = npc.gethead();
 		while (current != nullptr) {
@@ -970,36 +1000,16 @@ public:
 
 };
 
-// collision between Charaters,pojectiles
-//class collision {
-//public:
-//
-//	collision() {}
-//
-//	void pvn(Player& p, Spawn& s) {
-//
-//		node<NPC*>* current = s.npc.gethead();
-//		while (current != nullptr) {
-//			node<NPC*>* next = current->next;
-//			if (current->data->length <= (p.getsprite().width + current->data->getsprite().width) / 2) {
-//				p.health -= CRASH;
-//				current->data->health -= CRASH;
-//			}
-//			current = next;
-//		}
-//	}
-//
-//
-//};
-
 // player AOE attack
 class AOE {
 public:
 
 	int aoer = 200;
 	float aoetimer = 0;
-	float lasttry = 0;
+	float lastatk = 0;
 	int aoenum = 4;
+	int cd = AOECD;
+	bool cooling = false;
 	NPC** aoetarget;
 
 	AOE() {}
@@ -1083,28 +1093,6 @@ public:
 
 	}
 
-	void atkdraw2(Window& canvas, Spawn& s) {
-
-		for (int i = 0; i < aoenum; i++) {
-			if (aoetarget[i] != nullptr) {
-				int cx = aoetarget[i]->cx;
-				int cy = aoetarget[i]->cy;
-				int r = aoetarget[i]->getsprite().width / 2;
-				for (int j = -r; j <= r; j++) {
-					for (int k = -r; k <= r; k++) {
-						if (k * k + j * j <= r * r) {
-							if (cx + j >= 0 && cx + j < canvas.getWidth() &&
-								cy + k >= 0 && cy + k < canvas.getHeight()) {
-								canvas.draw(cx + j, cy + k, 255, 255, 255);
-							}
-						}
-					}
-				}
-			}
-		}
-
-	}
-
 	void drawaim(Window& canvas, int aimx, int aimy, int aimr) {
 		// draw a ring circle with ringwidth
 		int ringwidth = 3;
@@ -1145,13 +1133,24 @@ public:
 		}
 	}
 
-	bool atk(Window& canvas, Spawn& s, int aoex, int aoey, float gamepass) {
+	void update(Player& p, float gametime) {
+		if (p.plevel % 2 == 0 && p.plevel != 0 && p.powerup) { // powerup when even level
+			aoenum += 1;
+			aoer += 20;
+			cout << "AOE ENHANCED!" << endl;
+			p.powerup = false;
+		}
 
-		aoetimer -= (gamepass - lasttry);
-		lasttry = gamepass;
-		//cout << aoetimer << endl;
-		if (aoetimer <= 0) { // check CD
+		if (cooling) {//check cd
+			if (gametime - lastatk >= cd) {
+				cooling = false;
+			}
+		}
+	}
 
+	bool atk(Window& canvas, Spawn& s, int aoex, int aoey, float gametime) {
+
+		if (!cooling) {
 			detect(s, aoex, aoey);
 
 			for (int i = 0; i < aoenum; i++) {
@@ -1160,14 +1159,13 @@ public:
 				}
 			}
 
-			aoetimer = AOECD; //reset
+			lastatk = gametime;
+			cooling = true;
 			return true;
 		}
 		else {
 			return false;
 		}
-
-
 
 	}
 
@@ -1177,73 +1175,15 @@ public:
 
 		detect(s, aoex, aoey);
 
-		for (int i = 0; i < aoenum; i++) {
-			if (aoetarget[i] != nullptr) {
-				drawaim(canvas, aoetarget[i]->cx, aoetarget[i]->cy, aoetarget[i]->getsprite().width / 2);
-			}
-		}
-
-	}
-
-};
-
-// player power up
-class Powerup {
-public:
-	float lasttry;
-	float pucd = PUCD;
-	float putime = PUTIME;
-	bool cd = false;
-	bool active = false;
-	float lastover = 0;
-	float activetime = 0;
-	int option;
-
-	Powerup() {}
-
-	void activepu(Player& p, AOE& aoe, float gametime, int _option) {
-		if (!active && !cd) {
-			option = _option;
-			active = true;
-			switch (option) {
-			case 1:
-				p.shootgap -= 0.25;
-				break;
-			case 2:
-				aoe.aoenum += 4;
-				aoe.aoer += 50;
-				break;
-			}
-			activetime = gametime;
-		}
-	}
-
-
-	void update(Player& p, AOE& aoe, float gametime) {
-		if (active) {
-			if (gametime - activetime >= putime) {
-				active = false;
-				cd = true;
-				lastover = gametime;
-				switch (option) {
-				case 1:
-					p.shootgap += 0.25;
-					break;
-				case 2:
-					aoe.aoenum -= 4;
-					aoe.aoer -= 50;
-					break;
+		if (!cooling) {
+			for (int i = 0; i < aoenum; i++) {
+				if (aoetarget[i] != nullptr) {
+					drawaim(canvas, aoetarget[i]->cx, aoetarget[i]->cy, aoetarget[i]->getsprite().width / 2);
 				}
 			}
-			else {
-				return;
-			}
+
 		}
-		if (cd) {
-			if (gametime - lastover >= pucd) {
-				cd = false;
-			}
-		}
+
 	}
 
 };
@@ -1575,7 +1515,7 @@ public:
 };
 
 // save and load
-void savegame(int _slot, world& w, Player& p, Spawn& s, Projectilemanage& proj, AOE& aoe, Powerup& pu) {
+void savegame(int _slot, world& w, Player& p, Spawn& s, Projectilemanage& proj, AOE& aoe) {
 	ofstream save;
 
 	save.open("save" + to_string(_slot), ios::out);
@@ -1638,9 +1578,6 @@ int main() {
 	int aoeatk = 0; // not attack
 	float aoetimer = 0;
 
-	// powerup
-	Powerup pu;
-
 	// for in game show FPS
 	int framecount = 0;
 	float secondcount = 0.0f;
@@ -1690,17 +1627,10 @@ int main() {
 				//WASD Player move ,set speed with consider of the scale
 				w0.collisionplayer(canvas, p, wx[level], wy[level], u);
 				s0.pvn(p);
+				aoe.update(p, Game_time[level]);
 				p.update(canvas, wx[level], wy[level], u);
-				s0.update(canvas, p, wx[level], wy[level], dt, u);
+				s0.update(canvas, p, wx[level], wy[level], dt, u, level);
 				projl0.update(canvas, p, s0, wx[level], wy[level], dt, u);
-				//power up
-				pu.update(p, aoe, Game_time[level]);
-				if (canvas.keyPressed('E')) {
-					pu.activepu(p, aoe, Game_time[level], 1);
-				}
-				else if (canvas.keyPressed('R')) {
-					pu.activepu(p, aoe, Game_time[level], 2);
-				}
 				//aoe
 				if ((canvas.mouseButtonPressed(MouseLeft) && canvas.mouseButtonPressed(MouseRight)) || (canvas.mouseButtonPressed(MouseLeft) && canvas.keyPressed(VK_SPACE))) {
 					if (aoe.atk(canvas, s0, mousex, mousey, Game_time[level])) {
@@ -1712,7 +1642,6 @@ int main() {
 						aoeatk = 2;
 					}
 				}
-
 				// draw the frame
 				w0.draw(canvas, wx[level], wy[level]);
 				s0.draw(canvas);
@@ -1751,17 +1680,10 @@ int main() {
 			else if (level == 1) {
 				w1.collisionplayer(canvas, p, wx[level], wy[level], u);
 				s1.pvn(p);
+				aoe.update(p, Game_time[level]);
 				p.update(canvas, wx[level], wy[level], u);
-				s1.update(canvas, p, wx[level], wy[level], dt, u);
+				s1.update(canvas, p, wx[level], wy[level], dt, u, level);
 				projl1.update(canvas, p, s1, wx[level], wy[level], dt, u);
-				//power up
-				pu.update(p, aoe, Game_time[level]);
-				if (canvas.keyPressed('E')) {
-					pu.activepu(p, aoe, Game_time[level], 1);
-				}
-				else if (canvas.keyPressed('R')) {
-					pu.activepu(p, aoe, Game_time[level], 2);
-				}
 				//aoe
 				if ((canvas.mouseButtonPressed(MouseLeft) && canvas.mouseButtonPressed(MouseRight)) || (canvas.mouseButtonPressed(MouseLeft) && canvas.keyPressed(VK_SPACE))) {
 					if (aoe.atk(canvas, s1, mousex, mousey, Game_time[level])) {
@@ -1822,6 +1744,11 @@ int main() {
 			framecount++;
 			secondcount += dt;
 			overframecount++;
+			int npc0d = s0.defeated[0] + s1.defeated[0];
+			int npc1d = s0.defeated[1] + s1.defeated[1];
+			int npc2d = s0.defeated[2] + s1.defeated[2];
+			int npc3d = s0.defeated[3] + s1.defeated[3];
+			p.score = npc0d * NPCSCORE[0] + npc1d * NPCSCORE[1] + npc2d * NPCSCORE[2] + npc3d * NPCSCORE[3];
 
 			// in game show every
 			if (secondcount >= INGAMESHOW) {
@@ -1850,8 +1777,7 @@ int main() {
 	cout << "GAME OVER" << endl;
 	cout << "THANKS FOR PLAYING" << endl;
 	cout << "LEVEL CLEARED: " << level << endl;
-	int score = 10;
-	cout << "SCORE: " << score << endl;
+	cout << "SCORE: " << p.score << endl;
 
 	cout << "Detail:" << endl;
 
