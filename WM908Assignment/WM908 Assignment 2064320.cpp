@@ -43,6 +43,8 @@ const int PROJDAMAGE[2] = { 1500, 250 };
 const int PROJMAXT[2] = { 1500,3000 };
 const int AOEDAMAGE = 3000;
 const float AOECD = 5;
+const float PUCD = 30;
+const float PUTIME = 15;
 
 
 
@@ -164,7 +166,6 @@ public:
 
 };
 
-
 // array add template
 template<typename T>
 T sumarr(T* arr, int size) {
@@ -221,10 +222,9 @@ public:
 	int health;
 	float speed;
 	float shootgap = 0.5f;
-	bool Powerup;
+
 
 	Player(string filename, int _x, int _y, int _playerindex) : Sprites(filename, _x, _y), playerindex(_playerindex) {
-		Powerup = false;
 		health = PLAYERMAXHEALTH[playerindex];
 		speed = PLAYERSPEED[playerindex];
 		cx = _x;
@@ -763,7 +763,6 @@ public:
 
 // collision between Charaters,pojectiles
 class collision {
-private:
 public:
 
 	collision() {}
@@ -784,6 +783,7 @@ public:
 
 };
 
+// player AOE attack
 class AOE {
 public:
 
@@ -936,15 +936,12 @@ public:
 		}
 	}
 
-
-
 	bool atk(Window& canvas, Spawn& s, int aoex, int aoey, float gamepass) {
 
 		aoetimer -= (gamepass - lasttry);
 		lasttry = gamepass;
-		cout << aoetimer << endl;
+		//cout << aoetimer << endl;
 		if (aoetimer <= 0) { // check CD
-			cout << "atk" << endl;
 
 			detect(s, aoex, aoey);
 
@@ -978,6 +975,70 @@ public:
 		}
 
 	}
+
+};
+
+// player power up
+class Powerup {
+public:
+	float lasttry;
+	float pucd = PUCD;
+	float putime = PUTIME;
+	bool cd = false;
+	bool active = false;
+	float lastover = 0;
+	float activetime = 0;
+	int option;
+
+	Powerup() {}
+
+	void activepu(Player& p, AOE& aoe, float gametime, int _option) {
+		if (!active && !cd) {
+			option = _option;
+			active = true;
+			switch (option) {
+			case 1:
+				p.shootgap -= 0.25;
+				break;
+			case 2:
+				aoe.aoenum += 4;
+				break;
+			}
+			activetime = gametime;
+		}
+	}
+
+
+	void update(Player& p, AOE& aoe, float gametime) {
+		if (active) {
+			if (gametime - activetime >= putime) {
+				active = false;
+				cd = true;
+				lastover = gametime;
+				switch (option) {
+				case 1:
+					p.shootgap += 0.25;
+					break;
+				case 2:
+					aoe.aoenum -= 4;
+					break;
+				}
+			}
+			else {
+				return;
+			}
+		}
+		if (cd) {
+			if (gametime - lastover >= pucd) {
+				cd = false;
+			}
+		}
+	}
+
+};
+
+// display UI
+class display {
 
 };
 
@@ -1367,6 +1428,9 @@ int main() {
 	int aoeatk = 0; // not attack
 	float aoetimer = 0;
 
+	// powerup
+	Powerup pu;
+
 	// for in game show FPS
 	int framecount = 0;
 	float secondcount = 0.0f;
@@ -1422,6 +1486,15 @@ int main() {
 				p.update(canvas, wx[level], wy[level], u);
 				s0.update(canvas, p, wx[level], wy[level], dt, u);
 				projl0.update(canvas, p, s0, wx[level], wy[level], dt, u);
+				//power up
+				pu.update(p, aoe, Game_time[level]);
+				if (canvas.keyPressed('E')) {
+					pu.activepu(p, aoe, Game_time[level], 1);
+				}
+				else if (canvas.keyPressed('R')) {
+					pu.activepu(p, aoe, Game_time[level], 2);
+				}
+				//aoe
 				if ((canvas.mouseButtonPressed(MouseLeft) && canvas.mouseButtonPressed(MouseRight)) || (canvas.mouseButtonPressed(MouseLeft) && canvas.keyPressed(VK_SPACE))) {
 					if (aoe.atk(canvas, s0, mousex, mousey, Game_time[level])) {
 						aoeatk = 1;
@@ -1471,7 +1544,25 @@ int main() {
 				p.update(canvas, wx[level], wy[level], u);
 				s1.update(canvas, p, wx[level], wy[level], dt, u);
 				projl1.update(canvas, p, s1, wx[level], wy[level], dt, u);
-
+				//power up
+				pu.update(p, aoe, Game_time[level]);
+				if (canvas.keyPressed('E')) {
+					pu.activepu(p, aoe, Game_time[level], 1);
+				}
+				else if (canvas.keyPressed('R')) {
+					pu.activepu(p, aoe, Game_time[level], 2);
+				}
+				//aoe
+				if ((canvas.mouseButtonPressed(MouseLeft) && canvas.mouseButtonPressed(MouseRight)) || (canvas.mouseButtonPressed(MouseLeft) && canvas.keyPressed(VK_SPACE))) {
+					if (aoe.atk(canvas, s1, mousex, mousey, Game_time[level])) {
+						aoeatk = 1;
+					}
+				}
+				else if (canvas.keyPressed(VK_SPACE)) {
+					if (aoe.atk(canvas, s1, p.cx, p.cy, Game_time[level])) {
+						aoeatk = 2;
+					}
+				}
 
 				// draw the frame
 				w1.draw(canvas, wx[level], wy[level]);
@@ -1480,6 +1571,18 @@ int main() {
 				projl1.draw(canvas);
 				if (canvas.mouseButtonPressed(MouseLeft)) {
 					aoe.draw(canvas, s1, mousex, mousey);
+				}
+				if (aoeatk == 1 && aoetimer <= 0.1) {
+					aoe.atkdraw1(canvas, mousex, mousey);
+					aoetimer += dt;
+				}
+				else if (aoeatk == 2 && aoetimer <= 0.1) {
+					aoe.atkdraw1(canvas, p.cx, p.cy);
+					aoetimer += dt;
+				}
+				else {
+					aoeatk = 0;
+					aoetimer = 0;
 				}
 
 				Game_time[level] += dt;
