@@ -143,6 +143,7 @@ public:
 		}
 		head = nullptr;
 		tail = nullptr;
+		size = 0;
 	}
 
 	//find node for the data
@@ -210,6 +211,12 @@ public:
 	int getY() { return y; }
 	Image& getsprite() { return sprite; }
 
+	void changex(int _x) {
+		x = _x;
+	}
+	void changey(int _y) {
+		y = _y;
+	}
 
 };
 
@@ -331,10 +338,9 @@ public:
 	}
 
 	void load(ifstream& load) {
-		string head = "";
-		while (head != "Player") {
-			load >> head;
-		}
+		string head;
+
+		load >> head;
 		load >> dx;
 		load >> dy;
 		load >> wxp;
@@ -374,6 +380,7 @@ public:
 
 	int getcX() { return cx; }
 	int getcY() { return cy; }
+
 
 	void update(Window& canvas, Player& p, int wx, int wy, float u) {
 		// update xy based on the change of world
@@ -434,11 +441,12 @@ public:
 		save << npcindex << endl;
 		save << dx << endl;
 		save << dy << endl;
+		save << getX() << endl;
+		save << getY() << endl;
 		save << cx << endl;
 		save << cy << endl;
 		save << wxi << endl;
 		save << wyi << endl;
-		save << length << endl;
 		save << health << endl;
 
 	}
@@ -600,41 +608,43 @@ public:
 			node<NPC*>* next = current->next;
 			current->data->save(save, count);
 			count++;
-			npc.remove(current);
 			current = next;
 		}
 
 	}
 
 	void npcload(ifstream& load, int count) {
-		string head = "";
-		while (head != "NPC" + to_string(count)) {
-			load >> head;
-		}
+		string head;
+		load >> head;
 		int npcindex;
 		load >> npcindex;
 		string filename = "Resources/npc" + to_string(npcindex) + ".png";
 		NPC* n = new NPC(filename, 0, 0, 0, 0, npcindex);
 		load >> n->dx;
 		load >> n->dy;
+		int temp;
+		load >> temp;
+		n->changex(temp);
+		load >> temp;
+		n->changey(temp);
 		load >> n->cx;
 		load >> n->cy;
 		load >> n->wxi;
 		load >> n->wyi;
-		load >> n->length;
 		load >> n->health;
 		npc.addend(n);
-
+		cout << npc.getsize() << endl;
 	}
 
 	void load(ifstream& load) {
-		string head = "";
-		while (head != "SPAWN") {
-			load >> head;
-		}
+		string head;
+		load >> head;
 		load >> timeElapsed;
 		int size;
 		load >> size;
+		if (npc.getsize() != 0) {
+			npc.clear();
+		}
 		for (int i = 0; i < size; i++) {
 			npcload(load, i);
 		}
@@ -724,11 +734,12 @@ public:
 		save << proindex << endl;
 		save << dx << endl;
 		save << dy << endl;
+		save << getX() << endl;
+		save << getY() << endl;
 		save << cx << endl;
 		save << cy << endl;
 		save << wxpr << endl;
 		save << wypr << endl;
-		save << length << endl;
 		save << mt << endl;
 
 
@@ -921,7 +932,6 @@ public:
 			node<Projectile*>* next = current0->next;
 			current0->data->save(save, count0, 0);
 			count0++;
-			proj0.remove(current0);
 			current0 = next;
 		}
 
@@ -931,7 +941,6 @@ public:
 			node<Projectile*>* next = current1->next;
 			current1->data->save(save, count1, 1);
 			count1++;
-			proj1.remove(current1);
 			current1 = next;
 		}
 
@@ -949,11 +958,15 @@ public:
 			Projectile* proj = new Projectile(filename, 0, 0, 0, 0, proindex);
 			load >> proj->dx;
 			load >> proj->dy;
+			int temp;
+			load >> temp;
+			proj->changex(temp);
+			load >> temp;
+			proj->changey(temp);
 			load >> proj->cx;
 			load >> proj->cy;
 			load >> proj->wxpr;
 			load >> proj->wypr;
-			load >> proj->length;
 			load >> proj->mt;
 			proj0.addend(proj);
 		}
@@ -968,11 +981,15 @@ public:
 			Projectile* projj = new Projectile(filename, 0, 0, 0, 0, proindex);
 			load >> projj->dx;
 			load >> projj->dy;
+			int temp;
+			load >> temp;
+			projj->changex(temp);
+			load >> temp;
+			projj->changey(temp);
 			load >> projj->cx;
 			load >> projj->cy;
 			load >> projj->wxpr;
 			load >> projj->wypr;
-			load >> projj->length;
 			load >> projj->mt;
 			proj1.addend(projj);
 		}
@@ -989,9 +1006,14 @@ public:
 		load >> size0;
 		load >> timeElapsed1;
 		load >> size1;
-
+		if (proj0.getsize() != 0) {
+			proj0.clear();
+		}
 		for (int i = 0; i < size0; i++) {
 			projload(load, i, 0);
+		}
+		if (proj1.getsize() != 0) {
+			proj1.clear();
 		}
 		for (int i = 0; i < size1; i++) {
 			projload(load, i, 1);
@@ -1005,7 +1027,6 @@ class AOE {
 public:
 
 	int aoer = 200;
-	float aoetimer = 0;
 	float lastatk = 0;
 	int aoenum = 4;
 	int cd = AOECD;
@@ -1015,17 +1036,6 @@ public:
 	AOE() {}
 
 	~AOE() { delete[]aoetarget; }
-
-	void changeaoenum(int newnum) {
-		if (aoetarget != nullptr) {
-			delete[]aoetarget;
-		}
-		aoenum = newnum;
-		aoetarget = new NPC * [aoenum];
-		for (int i = 0; i < aoenum; i++) {
-			aoetarget[i] = nullptr;
-		}
-	}
 
 	bool checkwithin(node<NPC*>* n, int aoex, int aoey) {
 		float difx = n->data->cx - aoex;
@@ -1186,6 +1196,35 @@ public:
 
 	}
 
+	void save(ofstream& save) {
+		int c = 0;
+		if (cooling) { int c = 1; }
+		save << "AOE" << endl;
+		save << aoer << endl;
+		save << lastatk << endl;
+		save << aoenum << endl;
+		save << cd << endl;
+		save << c << endl;
+	}
+
+	void load(ifstream& load) {
+		string head = "";
+		while (head != "AOE") {
+			load >> head;
+		}
+		load >> aoer;
+		load >> lastatk;
+		load >> aoenum;
+		load >> cd;
+		int c;
+		load >> c;
+		if (c == 1) {
+			cooling = true;
+		}
+		else {
+			cooling = false;
+		}
+	}
 };
 
 // display UI
@@ -1515,23 +1554,40 @@ public:
 };
 
 // save and load
-void savegame(int _slot, world& w, Player& p, Spawn& s, Projectilemanage& proj, AOE& aoe) {
+void savegame(int _slot, int& level, float* Game_time, int* wx, int* wy, world& w, Player& p, Spawn& s, Projectilemanage& proj, AOE& aoe) {
 	ofstream save;
 
 	save.open("save" + to_string(_slot), ios::out);
 
+	save << level << endl;
+	save << Game_time[level] << endl;
+	save << wx[level] << endl;
+	save << wy[level] << endl;
 
+	p.save(save);
+	s.save(save);
+	proj.save(save);
+	aoe.save(save);
 
 
 	save.close();
 
 }
 
-void loadgame(world& w0, world& w1, unsigned int _slot = 1) {
+void loadgame(int _slot, int& level, float* Game_time, int* wx, int* wy, world& w, Player& p, Spawn& s, Projectilemanage& proj, AOE& aoe) {
 	ifstream load;
 
 	load.open("save" + to_string(_slot), ios::in);
 
+	load >> level;
+	load >> Game_time[level];
+	load >> wx[level];
+	load >> wy[level];
+
+	p.load(load);
+	s.load(load);
+	proj.load(load);
+	aoe.load(load);
 
 	load.close();
 }
@@ -1618,6 +1674,13 @@ int main() {
 		if (canvas.keyPressed(VK_ESCAPE)) break;  // ESC to quit the game
 		int mousex = canvas.getMouseInWindowX();
 		int mousey = canvas.getMouseInWindowY();
+
+		if (canvas.keyPressed('O')) {
+			savegame(1, level, Game_time, wx, wy, w0, p, s0, projl0, aoe);
+		}
+		if (canvas.keyPressed('L')) {
+			loadgame(1, level, Game_time, wx, wy, w0, p, s0, projl0, aoe);
+		}
 
 		if (canvas.keyPressed('P') != true) {
 
