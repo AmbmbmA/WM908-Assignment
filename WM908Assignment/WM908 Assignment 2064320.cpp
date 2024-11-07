@@ -31,7 +31,7 @@ const int MAXNUM = 30; // max number of NPC allow exist
 
 //health
 const unsigned int PLAYERMAXHEALTH[1] = { 3000 };
-const unsigned int NPCMAXHEALTH[4] = { 1000 , 1000 , 2000 , 4000 };
+const unsigned int NPCMAXHEALTH[4] = { 1000 , 2000 , 3000 , 4500 };
 //speed
 const float PLAYERSPEED[1] = { 65 };
 const float NPCSPEED[4] = { 60 , 55 , 45 , 0 };
@@ -39,8 +39,12 @@ const int PROSPEED[2] = { 150, 30 };
 const int NPCSCORE[4] = { 5,10,15,20 };
 //atk
 const int CRASH = 1;
-const int PROJDAMAGE[2] = { 1000, 250 };
+const int PROJDAMAGE[2] = { 1500, 250 };
 const int PROJMAXT[2] = { 1500,3000 };
+const int AOEDAMAGE = 3000;
+const float AOECD = 5;
+
+
 
 // double linked list template
 template <typename T>
@@ -70,6 +74,8 @@ public:
 			current = next;
 		}
 	}
+
+	//coulde use pointer instead of reference
 
 	//add new element at head
 	void addfront(T& _data) {
@@ -124,7 +130,16 @@ public:
 		size--;
 	}
 
-
+	void clear() {
+		node<T>* current = head;
+		while (current != nullptr) {
+			node<T>* next = current->next;
+			delete current;
+			current = next;
+		}
+		head = nullptr;
+		tail = nullptr;
+	}
 
 	//find node for the data
 	node<T>* find(const T& _data) {
@@ -148,6 +163,7 @@ public:
 	node<T>* gettail() const { return tail; }
 
 };
+
 
 // array add template
 template<typename T>
@@ -275,16 +291,6 @@ public:
 	int getcX() { return cx; }
 	int getcY() { return cy; }
 
-
-
-	void shoot() {
-
-	}
-
-	void aoe() {
-
-	}
-
 };
 
 // NPC
@@ -325,7 +331,7 @@ public:
 		int px = p.getcX(); int py = p.getcY(); //  player world position
 		int difx = px - cx;
 		int dify = py - cy;
-		length = sqrt(difx * difx + dify * dify);
+		length = sqrtf(difx * difx + dify * dify);
 
 		if (npcindex != 3) { // skip static one 
 
@@ -389,8 +395,8 @@ public:
 		//probability of index
 		int p0 = 40;
 		int p1 = 30;
-		int p2 = 15;
-		int p3 = 15;
+		int p2 = 10;
+		int p3 = 20;
 
 		if (p >= 0 && p < p0) {
 			npcindex = 0;
@@ -539,7 +545,7 @@ public:
 
 		int difx = targetx - cx;
 		int dify = targety - cy;
-		length = sqrt(difx * difx + dify * dify);
+		length = sqrtf(difx * difx + dify * dify);
 
 		// always towards target
 		float ux = 0.0f; float uy = 0.0f; // direction scaler
@@ -623,14 +629,14 @@ public:
 			proj->data->getcY() < upb) {
 			proj0.remove(proj);
 		}
-		if (proj->data->length <= 10) {
+		else if (proj->data->length <= 10) {
 			proj0.remove(proj);
 			npc->data->health -= PROJDAMAGE[0];
 		}
-		if (proj->data->mt >= PROJMAXT[0]) {
+		else if (proj->data->mt >= PROJMAXT[0]) {
 			proj0.remove(proj);
 		}
-		if (npc == nullptr) {
+		else if (npc == nullptr) {
 			proj0.remove(proj);
 		}
 
@@ -665,11 +671,11 @@ public:
 			proj->data->getcY() < upb) {
 			proj1.remove(proj);
 		}
-		if (proj->data->length <= 10) {
+		else if (proj->data->length <= 10) {
 			proj1.remove(proj);
 			p.health -= PROJDAMAGE[1];
 		}
-		if (proj->data->mt >= PROJMAXT[1]) {
+		else if (proj->data->mt >= PROJMAXT[1]) {
 			proj1.remove(proj);
 		}
 
@@ -775,6 +781,203 @@ public:
 		}
 	}
 
+
+};
+
+class AOE {
+public:
+
+	int aoer = 200;
+	float aoetimer = 0;
+	float lasttry = 0;
+	int aoenum = 4;
+	NPC** aoetarget;
+
+	AOE() {}
+
+	~AOE() { delete[]aoetarget; }
+
+	void changeaoenum(int newnum) {
+		if (aoetarget != nullptr) {
+			delete[]aoetarget;
+		}
+		aoenum = newnum;
+		aoetarget = new NPC * [aoenum];
+		for (int i = 0; i < aoenum; i++) {
+			aoetarget[i] = nullptr;
+		}
+	}
+
+	bool checkwithin(node<NPC*>* n, int aoex, int aoey) {
+		float difx = n->data->cx - aoex;
+		float dify = n->data->cy - aoey;
+		float distance = sqrtf(difx * difx + dify * dify);
+		if (distance <= aoer) {
+			return true;
+		}
+		return false;
+	}
+
+	void detect(Spawn& s, int aoex, int aoey) {
+
+		if (aoetarget != nullptr) {
+			delete[]aoetarget;
+		}
+		aoetarget = new NPC * [aoenum];
+		for (int i = 0; i < aoenum; i++) {
+			aoetarget[i] = nullptr;
+		}
+
+
+		node<NPC*>* current = s.npc.gethead();
+		while (current != nullptr) { // for all npc
+			node<NPC*>* next = current->next;
+			if (checkwithin(current, aoex, aoey)) { // check within the aoe area
+				bool added = false;
+				for (int i = 0; i < aoenum; i++) {
+					if (aoetarget[i] == nullptr) {
+						aoetarget[i] = current->data;
+						added = true;
+						break;
+					}
+				}
+				if (!added) {
+					int lowest = 0;
+					for (int i = 1; i < aoenum; i++) {
+						if (aoetarget[i]->health < aoetarget[lowest]->health) {
+							lowest = i;
+						}
+					}
+
+					if (current->data->health > aoetarget[lowest]->health) {
+						aoetarget[lowest] = current->data;
+					}
+				}
+			}
+			current = next;
+		}
+	}
+
+	void atkdraw1(Window& canvas, int aoex, int aoey) {
+
+		for (int i = -aoer; i <= aoer; i++) {
+			for (int j = -aoer; j <= aoer; j++) {
+				if (i * i + j * j <= aoer * aoer) {
+					if (aoex + i >= 0 && aoex + i < canvas.getWidth() &&
+						aoey + j >= 0 && aoey + j < canvas.getHeight()) {
+						canvas.draw(aoex + i, aoey + j, 0, 0, 0);
+					}
+				}
+			}
+		}
+
+
+	}
+
+	void atkdraw2(Window& canvas, Spawn& s) {
+
+		for (int i = 0; i < aoenum; i++) {
+			if (aoetarget[i] != nullptr) {
+				int cx = aoetarget[i]->cx;
+				int cy = aoetarget[i]->cy;
+				int r = aoetarget[i]->getsprite().width / 2;
+				for (int j = -r; j <= r; j++) {
+					for (int k = -r; k <= r; k++) {
+						if (k * k + j * j <= r * r) {
+							if (cx + j >= 0 && cx + j < canvas.getWidth() &&
+								cy + k >= 0 && cy + k < canvas.getHeight()) {
+								canvas.draw(cx + j, cy + k, 255, 255, 255);
+							}
+						}
+					}
+				}
+			}
+		}
+
+	}
+
+	void drawaim(Window& canvas, int aimx, int aimy, int aimr) {
+		// draw a ring circle with ringwidth
+		int ringwidth = 3;
+		for (int i = -aimr; i <= aimr; i++) {
+			for (int j = -aimr; j <= aimr; j++) {
+				int dsq = i * i + j * j;
+				if (dsq >= (aimr - ringwidth) * (aimr - ringwidth) && dsq <= aimr * aimr) { // for all with distance within the ring
+					if (aimx + i >= 0 && aimx + i < canvas.getWidth() &&
+						aimy + j >= 0 && aimy + j < canvas.getHeight()) {
+						canvas.draw(aimx + i, aimy + j, 255, 0, 0);
+					}
+				}
+			}
+		}
+
+		// draw aim cross
+		int crosslength = aimr / 2;
+		int crosswidth = 3;
+
+		//hori
+		for (int w = -crosswidth / 2; w <= crosswidth / 2; w++) {
+			for (int i = -crosslength; i <= crosslength; i++) {
+				if (aimx + i >= 0 && aimx + i < canvas.getWidth() &&
+					aimy + w >= 0 && aimy + w < canvas.getHeight()) {
+					canvas.draw(aimx + i, aimy + w, 0, 255, 0);
+				}
+			}
+		}
+
+		// verti
+		for (int w = -crosswidth / 2; w <= crosswidth / 2; w++) {
+			for (int j = -crosslength; j <= crosslength; j++) {
+				if (aimx + w >= 0 && aimx + w < canvas.getWidth() &&
+					aimy + j >= 0 && aimy + j < canvas.getHeight()) {
+					canvas.draw(aimx + w, aimy + j, 0, 255, 0);
+				}
+			}
+		}
+	}
+
+
+
+	bool atk(Window& canvas, Spawn& s, int aoex, int aoey, float gamepass) {
+
+		aoetimer -= (gamepass - lasttry);
+		lasttry = gamepass;
+		cout << aoetimer << endl;
+		if (aoetimer <= 0) { // check CD
+			cout << "atk" << endl;
+
+			detect(s, aoex, aoey);
+
+			for (int i = 0; i < aoenum; i++) {
+				if (aoetarget[i] != nullptr) {
+					aoetarget[i]->health -= AOEDAMAGE;
+				}
+			}
+
+			aoetimer = AOECD; //reset
+			return true;
+		}
+		else {
+			return false;
+		}
+
+
+
+	}
+
+	void draw(Window& canvas, Spawn& s, int aoex, int aoey) {
+
+		drawaim(canvas, aoex, aoey, aoer);
+
+		detect(s, aoex, aoey);
+
+		for (int i = 0; i < aoenum; i++) {
+			if (aoetarget[i] != nullptr) {
+				drawaim(canvas, aoetarget[i]->cx, aoetarget[i]->cy, aoetarget[i]->getsprite().width / 2);
+			}
+		}
+
+	}
 
 };
 
@@ -1120,8 +1323,6 @@ void loadgame(unsigned int _slot = 1) {
 	load.close();
 }
 
-
-
 // main funtion
 int main() {
 	srand(time(0));// set seed for random
@@ -1158,9 +1359,13 @@ int main() {
 	Projectilemanage projl0;
 	Projectilemanage projl1;
 
-
 	// Collision
 	collision c;
+
+	// aoe
+	AOE aoe;
+	int aoeatk = 0; // not attack
+	float aoetimer = 0;
 
 	// for in game show FPS
 	int framecount = 0;
@@ -1200,9 +1405,14 @@ int main() {
 
 		//Keypress game logic update
 		if (canvas.keyPressed(VK_ESCAPE)) break;  // ESC to quit the game
+		int mousex = canvas.getMouseInWindowX();
+		int mousey = canvas.getMouseInWindowY();
+
 		if (canvas.keyPressed('P') != true) {
 
-			if (p.health <= 0) { gameover = true; } // detect player health
+			//if (p.health <= 0) { gameover = true; } // detect player health
+
+
 
 
 			if (level == 0) {
@@ -1212,12 +1422,39 @@ int main() {
 				p.update(canvas, wx[level], wy[level], u);
 				s0.update(canvas, p, wx[level], wy[level], dt, u);
 				projl0.update(canvas, p, s0, wx[level], wy[level], dt, u);
+				if ((canvas.mouseButtonPressed(MouseLeft) && canvas.mouseButtonPressed(MouseRight)) || (canvas.mouseButtonPressed(MouseLeft) && canvas.keyPressed(VK_SPACE))) {
+					if (aoe.atk(canvas, s0, mousex, mousey, Game_time[level])) {
+						aoeatk = 1;
+					}
+				}
+				else if (canvas.keyPressed(VK_SPACE)) {
+					if (aoe.atk(canvas, s0, p.cx, p.cy, Game_time[level])) {
+						aoeatk = 2;
+					}
+				}
 
 				// draw the frame
 				w0.draw(canvas, wx[level], wy[level]);
 				s0.draw(canvas);
 				p.draw(canvas);
 				projl0.draw(canvas);
+				if (canvas.mouseButtonPressed(MouseLeft)) {
+					aoe.draw(canvas, s0, mousex, mousey);
+				}
+				if (aoeatk == 1 && aoetimer <= 0.1) {
+					aoe.atkdraw1(canvas, mousex, mousey);
+					aoetimer += dt;
+				}
+				else if (aoeatk == 2 && aoetimer <= 0.1) {
+					aoe.atkdraw1(canvas, p.cx, p.cy);
+					aoetimer += dt;
+				}
+				else {
+					aoeatk = 0;
+					aoetimer = 0;
+				}
+
+
 
 				Game_time[level] += dt;
 				if (Game_time[level] >= LEVELTIME[level]) {
@@ -1241,6 +1478,9 @@ int main() {
 				p.draw(canvas);
 				s1.draw(canvas);
 				projl1.draw(canvas);
+				if (canvas.mouseButtonPressed(MouseLeft)) {
+					aoe.draw(canvas, s1, mousex, mousey);
+				}
 
 				Game_time[level] += dt;
 				if (Game_time[level] >= LEVELTIME[level]) {
@@ -1267,7 +1507,7 @@ int main() {
 			overframecount++;
 
 			// in game show every
-			if (secondcount >= INGAMESHOW || canvas.mouseButtonPressed(MouseRight)) {
+			if (secondcount >= INGAMESHOW) {
 
 				//FPS
 				int FPS = framecount / secondcount;
