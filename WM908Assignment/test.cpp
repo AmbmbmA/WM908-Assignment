@@ -11,7 +11,7 @@ using namespace GamesEngineeringBase;
 
 //game const
 const unsigned int LEVELNUM = 2; // total level number
-const unsigned int LEVELTIME[LEVELNUM] = { 120,120 }; //level time length in second
+const unsigned int LEVELTIME[LEVELNUM] = { 5,120 }; //level time length in second
 const bool LEVELMAPINF[LEVELNUM] = { true,false };//level map infinity
 const unsigned int HORIBOND = 50; // horizontal bondwidth for finitemap
 const unsigned int VERTIBOND = 50;
@@ -23,8 +23,8 @@ const float SCALE = 1; //scale of the window,with modified character size and sp
 const int INMARGIN = 100; // range for the npc to spawn outside the cancas
 const int OUTMARGIN = 2000; // range for the npc to spawn outside the cancas
 const float SPAWNGAP = 1.0f; //initial spawn time gap
-const float SPAWNACC = 0.02f; // spawn accelerate gap
-const float MINSPAWNGAP = 0.5f; // MIN spawn gap
+const float SPAWNACC = 0.04f; // spawn accelerate gap
+const float MINSPAWNGAP = 0.2f; // MIN spawn gap
 const int MAXNUM = 30; // max number of NPC allow exist
 
 //character const
@@ -43,7 +43,7 @@ const int PROJDAMAGE[2] = { 1500, 250 };
 const int PROJMAXT[2] = { 1500,3000 };
 const int AOEDAMAGE = 3000;
 const float AOECD = 5;
-const float PUCD = 30;
+const float PUCD = 45;
 const float PUTIME = 15;
 
 
@@ -1002,6 +1002,7 @@ public:
 				break;
 			case 2:
 				aoe.aoenum += 4;
+				aoe.aoer += 50;
 				break;
 			}
 			activetime = gametime;
@@ -1021,6 +1022,7 @@ public:
 					break;
 				case 2:
 					aoe.aoenum -= 4;
+					aoe.aoer -= 50;
 					break;
 				}
 			}
@@ -1474,10 +1476,7 @@ int main() {
 
 		if (canvas.keyPressed('P') != true) {
 
-			//if (p.health <= 0) { gameover = true; } // detect player health
-
-
-
+			if (p.health <= 0) { gameover = true; } // detect player health
 
 			if (level == 0) {
 				//WASD Player move ,set speed with consider of the scale
@@ -1578,6 +1577,7 @@ int main() {
 				else if (canvas.keyPressed('J')) {
 					aoe.draw(canvas, s1, p.cx, p.cy);
 				}
+
 				if (aoeatk == 1 && aoetimer <= 0.1) {
 					aoe.atkdraw1(canvas, mousex, mousey);
 					aoetimer += dt;
