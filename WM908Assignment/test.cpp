@@ -10,7 +10,7 @@ using namespace GamesEngineeringBase;
 
 //game const
 const unsigned int LEVELNUM = 2; // total level number
-const unsigned int LEVELTIME[LEVELNUM] = { 120,120 }; //level time length in second
+const unsigned int LEVELTIME[LEVELNUM] = { 5,120 }; //level time length in second
 const bool LEVELMAPINF[LEVELNUM] = { true,false };//level map infinity
 const unsigned int HORIBOND = 50; // horizontal bondwidth for finitemap
 const unsigned int VERTIBOND = 50;
@@ -36,9 +36,9 @@ const int BASESCOREFORUP = 100;
 const unsigned int PLAYERMAXHEALTH[1] = { 3000 };
 const unsigned int NPCMAXHEALTH[4] = { 1000 , 2000 , 3000 , 4500 };
 //speed
-const float PLAYERSPEED[1] = { 70 };
-const float NPCSPEED[4] = { 60 , 55 , 45 , 0 };
-const int PROSPEED[2] = { 150, 30 };
+const float PLAYERSPEED[1] = { 60 };
+const float NPCSPEED[4] = { 50 , 40 , 30 , 0 };
+const int PROSPEED[2] = { 120, 20 };
 //atk
 const int CRASH = 1;
 const int PROJDAMAGE[2] = { 1500, 250 };
@@ -462,7 +462,6 @@ public:
 	DBLL<NPC*> npc;
 
 	int generated[4] = { 0,0,0,0 };
-	int outrange[4] = { 0,0,0,0 };
 	int defeated[4] = { 0,0,0,0 };
 
 	int randomnpcindex() {
@@ -546,7 +545,6 @@ public:
 			npcc->data->getcY() > bottomb ||
 			npcc->data->getcY() < upb) {
 			//cout << "One NPC (Type" << npcc->data->npcindex << ") has been destroyed because too far away." << endl;
-			outrange[npcc->data->npcindex]++;
 			npc.remove(npcc);
 		}
 		if (npcc->data->health <= 0) {
@@ -600,7 +598,12 @@ public:
 	void save(ofstream& save) {
 		save << "SPAWN" << endl;
 		save << timeElapsed << endl;
+		save << timeThreshold << endl;
 		save << npc.getsize() << endl;
+		for (int i = 0; i < 4; i++) {
+			save << generated[i] << endl;
+			save << defeated[i] << endl;
+		}
 		node<NPC*>* current = npc.gethead();
 		int count = 0;
 		while (current != nullptr) {
@@ -638,8 +641,13 @@ public:
 		string head;
 		load >> head;
 		load >> timeElapsed;
+		load >> timeThreshold;
 		int size;
 		load >> size;
+		for (int i = 0; i < 4; i++) {
+			load >> generated[i];
+			load >> defeated[i];
+		}
 		if (npc.getsize() != 0) {
 			npc.clear();
 		}
@@ -1355,8 +1363,8 @@ public:
 			mapseed[i] = new unsigned int[worldsizeY];
 		}
 
-		for (unsigned int i = 0; i < worldsizeX; i++) {
-			for (unsigned int j = 0; j < worldsizeY; j++) {
+		for (unsigned int j = 0; j < worldsizeY; j++) { //change for loop order to give a clear view of map
+			for (unsigned int i = 0; i < worldsizeX; i++) {
 				loadmap >> mapseed[i][j];
 			}
 		}
@@ -1370,6 +1378,60 @@ public:
 			delete[] mapseed[i];
 		}
 		delete[] mapseed;
+	}
+
+	void changemapseed(string filename) {
+
+		ifstream loadmap;
+		loadmap.open(filename, ios::in);
+
+		loadmap >> tiletype;
+
+		tiles.load(tiletype);
+
+		loadmap >> worldsizeX;
+		loadmap >> worldsizeY;
+
+		for (unsigned int j = 0; j < worldsizeY; j++) { //change for loop order to give a clear view of map
+			for (unsigned int i = 0; i < worldsizeX; i++) {
+				loadmap >> mapseed[i][j];
+			}
+		}
+
+		loadmap.close();
+	}
+
+	void initialrandommappseed() {
+		if (LEVELMAPINF[0] == true) {
+
+			tiles.load(tiletype);
+
+			for (unsigned int i = 0; i < worldsizeX; i++) {
+				for (unsigned int j = 0; j < worldsizeY; j++) {
+					mapseed[i][j] = randomtileindex();
+				}
+			}
+		}
+		else {
+			int caw = HORIBOND;
+			int cah = VERTIBOND;
+
+			tiles.load(tiletype);
+
+			// obstacle tiles
+			for (unsigned int i = 0; i < worldsizeX; i++) {
+				for (unsigned int j = 0; j < worldsizeY; j++) {
+					mapseed[i][j] = 5;
+				}
+			}
+
+			// world in the middle
+			for (unsigned int i = caw; i < (worldsizeX - caw); i++) {
+				for (unsigned int j = cah; j < (worldsizeY - cah); j++) {
+					mapseed[i][j] = randomtileindex();
+				}
+			}
+		}
 	}
 
 	void savemapseed(string filename) {
@@ -1542,13 +1604,29 @@ public:
 	tileset& gettileset() { return tiles; }
 };
 
-//UI button
-class button {
+//UI 
+class UI {
 public:
 
-	button() {}
+	UI() {}
 
-	int ui0(int x, int y) {
+	void playerhealth(Window& canvas, Player& p) {
+
+		for (int i = 70; i < PLAYERMAXHEALTH[0] / 5 + 70; i++) {
+			for (int j = 32; j < 64; j++) {
+				canvas.draw(i, j, 0, 0, 255);
+			}
+		}
+
+		for (int i = 70; i < p.health / 5 + 70; i++) {
+			for (int j = 32; j < 64; j++) {
+				canvas.draw(i, j, 255, 0, 0);
+			}
+		}
+
+	}
+
+	int ui0button(int x, int y) {
 		if (x >= 368 && x <= 614) {
 			if (y >= 225 && y <= 310) { //start
 				return 1;
@@ -1570,7 +1648,7 @@ public:
 		return 0;
 	}
 
-	int ui1(int x, int y) {
+	int ui1button(int x, int y) {
 		if (x >= 371 && x <= 617) {
 			if (y >= 224 && y <= 311) { //save1
 				return 1;
@@ -1595,12 +1673,25 @@ public:
 		return 0;
 	}
 
-	int ui2(int x, int y) {
+	int ui2button(int x, int y) {
 		if (x >= 8 && x <= 253 && y >= 13 && y <= 100) { return 1; } //back
 
 		return 0;
 	}
+
+	int ui3button(int x, int y) {
+		if (x >= 11 && x <= 286 && y >= 20 && y <= 114) { return 1; } //Main
+		if (x >= 348 && x <= 622 && y >= 601 && y <= 694) { return 2; } //quit
+		return 0;
+	}
+
+	int ui4button(int x, int y) {
+		if (x >= 11 && x <= 286 && y >= 20 && y <= 114) { return 1; } //Main
+		if (x >= 348 && x <= 622 && y >= 601 && y <= 694) { return 2; } //quit
+		return 0;
+	}
 };
+
 
 bool fileexist(const string& filename) {
 	ifstream file(filename);
@@ -1608,26 +1699,30 @@ bool fileexist(const string& filename) {
 }
 
 // save and load
-void savegame(int _slot, int& level, float* Game_time, int* wx, int* wy, world& w, Player& p, Spawn& s, Projectilemanage& proj, AOE& aoe) {
+void savegame(int _slot, int& level, float* Game_time, int* wx, int* wy, world* w, Player& p, Spawn* s, Projectilemanage* proj, AOE& aoe) {
 	ofstream save;
 
 	save.open("Save/save" + to_string(_slot) + ".txt", ios::out);
 
 	save << level << endl;
-	save << Game_time[level] << endl;
-	save << wx[level] << endl;
-	save << wy[level] << endl;
+	w[level].savemapseed("Save/worldforsave" + to_string(_slot) + ".txt");
+
+	for (int i = 0; i < LEVELNUM; i++) {
+		save << Game_time[i] << endl;
+		save << wx[i] << endl;
+		save << wy[i] << endl;
+	}
 
 	p.save(save);
-	s.save(save);
-	proj.save(save);
+	s[level].save(save);
+	proj[level].save(save);
 	aoe.save(save);
 
 	save.close();
 
 }
 
-bool loadgame(int _slot, int& level, float* Game_time, int* wx, int* wy, world& w, Player& p, Spawn& s, Projectilemanage& proj, AOE& aoe) {
+bool loadgame(int _slot, int& level, float* Game_time, int* wx, int* wy, world* w, Player& p, Spawn* s, Projectilemanage* proj, AOE& aoe) {
 	ifstream load;
 	string filename;
 	filename = "Save/save" + to_string(_slot) + ".txt";
@@ -1636,13 +1731,23 @@ bool loadgame(int _slot, int& level, float* Game_time, int* wx, int* wy, world& 
 		load.open(filename, ios::in);
 
 		load >> level;
-		load >> Game_time[level];
-		load >> wx[level];
-		load >> wy[level];
+		if (_slot == 0) {
+			w[0].initialrandommappseed();
+		}
+		else {
+			w[level].changemapseed("Save/worldforsave" + to_string(_slot) + ".txt");
+		}
+
+		for (int i = 0; i < LEVELNUM; i++) {
+			load >> Game_time[i];
+			load >> wx[i];
+			load >> wy[i];
+		}
+
 
 		p.load(load);
-		s.load(load);
-		proj.load(load);
+		s[level].load(load);
+		proj[level].load(load);
 		aoe.load(load);
 
 		load.close();
@@ -1657,8 +1762,9 @@ int main() {
 	srand(time(0));// set seed for random
 	Timer timer;
 	bool run = true; //game loop run
-	bool gamepalse = true; // game palse
+	bool gamepause = true; // game palse
 	bool gameover = false;
+	bool gameclear = false;
 	int UIindex = 0;
 
 	// draw the canvas
@@ -1671,19 +1777,21 @@ int main() {
 	Sprites ui1("Resources/ui1.png", canvas.getWidth() / 2, canvas.getHeight() / 2);
 	Sprites ui2("Resources/ui2.png", canvas.getWidth() / 2, canvas.getHeight() / 2);
 	Sprites ui3("Resources/ui3.png", canvas.getWidth() / 2, canvas.getHeight() / 2);
+	Sprites ui4("Resources/ui4.png", canvas.getWidth() / 2, canvas.getHeight() / 2);
+	Sprites playericon("Resources/Playericon.png", 48, 48);
 
 	// Create the world map
 
-	//from file
-	//world w("world.txt");
-
-	//random
+	//random level 1 map
 	world w0(100, 100, 0);
-	w0.savemapseed("World/world0.txt"); // save the seed
+	w0.savemapseed("Save/worldrandoml1.txt"); // save the seed
 
-	// random generate level 2 finite world
-	world w1(100, 100, 1); // random generate level 2 finite world
-	w1.savemapseed("World/world1.txt"); // save the seed
+	//read level 2 map
+	world w1("World/finiteworld1.txt");
+
+	//random level 1 map
+	//world w1(100, 100, 1); // random generate level 2 finite world
+	//w1.savemapseed("Save/worldrandoml2.txt"); // save the seed
 
 	world w[LEVELNUM] = { w0,w1 };
 
@@ -1705,7 +1813,7 @@ int main() {
 	float aoetimer = 0; //for visual effect
 
 	//button
-	button b;
+	UI ui;
 
 	// for in game show FPS
 	int framecount = 0;
@@ -1745,78 +1853,94 @@ int main() {
 		int mousey = canvas.getMouseInWindowY();
 
 		//UI
-		if (gamepalse) {
+		if (gamepause) {
 			if (UIindex == 0) {
 				ui0.draw(canvas);
-				if (b.ui0(mousex, mousey) == 1 && canvas.mouseButtonPressed(MouseLeft)) {
-					if (loadgame(0, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe)) gamepalse = false;
-					gamepalse = false;
+				if (ui.ui0button(mousex, mousey) == 1 && canvas.mouseButtonPressed(MouseLeft)) {
+					if (loadgame(0, level, Game_time, wx, wy, w, p, s, projl, aoe)) gamepause = false;
 				}
-				else if (b.ui0(mousex, mousey) == 2 && canvas.mouseButtonPressed(MouseLeft)) {
-					if (loadgame(1, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe)) gamepalse = false;
+				else if (ui.ui0button(mousex, mousey) == 2 && canvas.mouseButtonPressed(MouseLeft)) {
+					if (loadgame(1, level, Game_time, wx, wy, w, p, s, projl, aoe)) gamepause = false;
 				}
-				else if (b.ui0(mousex, mousey) == 3 && canvas.mouseButtonPressed(MouseLeft)) {
-					if (loadgame(2, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe)) gamepalse = false;
+				else if (ui.ui0button(mousex, mousey) == 3 && canvas.mouseButtonPressed(MouseLeft)) {
+					if (loadgame(2, level, Game_time, wx, wy, w, p, s, projl, aoe)) gamepause = false;
 				}
-				else if (b.ui0(mousex, mousey) == 4 && canvas.mouseButtonPressed(MouseLeft)) {
+				else if (ui.ui0button(mousex, mousey) == 4 && canvas.mouseButtonPressed(MouseLeft)) {
 					UIindex = 2;
 				}
-				else if (b.ui0(mousex, mousey) == 5 && canvas.mouseButtonPressed(MouseLeft)) {
+				else if (ui.ui0button(mousex, mousey) == 5 && canvas.mouseButtonPressed(MouseLeft)) {
 					run = false;
 					break;
 				}
 			}
 			else if (UIindex == 1) {
 				ui1.draw(canvas);
-				if (b.ui1(mousex, mousey) == 1 && canvas.mouseButtonPressed(MouseLeft)) {
-					savegame(1, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe);
+				if (ui.ui1button(mousex, mousey) == 1 && canvas.mouseButtonPressed(MouseLeft)) {
+					savegame(1, level, Game_time, wx, wy, w, p, s, projl, aoe);
 				}
-				else if (b.ui1(mousex, mousey) == 2 && canvas.mouseButtonPressed(MouseLeft)) {
-					savegame(2, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe);
+				else if (ui.ui1button(mousex, mousey) == 2 && canvas.mouseButtonPressed(MouseLeft)) {
+					savegame(2, level, Game_time, wx, wy, w, p, s, projl, aoe);
 				}
-				else if (b.ui1(mousex, mousey) == 3 && canvas.mouseButtonPressed(MouseLeft)) {
-					loadgame(1, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe);
-					gamepalse = false;
+				else if (ui.ui1button(mousex, mousey) == 3 && canvas.mouseButtonPressed(MouseLeft)) {
+					loadgame(1, level, Game_time, wx, wy, w, p, s, projl, aoe);
+					gamepause = false;
 				}
-				else if (b.ui1(mousex, mousey) == 4 && canvas.mouseButtonPressed(MouseLeft)) {
-					loadgame(2, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe);
-					gamepalse = false;
+				else if (ui.ui1button(mousex, mousey) == 4 && canvas.mouseButtonPressed(MouseLeft)) {
+					loadgame(2, level, Game_time, wx, wy, w, p, s, projl, aoe);
+					gamepause = false;
 				}
-				else if (b.ui1(mousex, mousey) == 5 && canvas.mouseButtonPressed(MouseLeft)) {
-					gamepalse = false;
+				else if (ui.ui1button(mousex, mousey) == 5 && canvas.mouseButtonPressed(MouseLeft)) {
+					gamepause = false;
 				}
-				else if (b.ui1(mousex, mousey) == 6 && canvas.mouseButtonPressed(MouseLeft)) {
+				else if (ui.ui1button(mousex, mousey) == 6 && canvas.mouseButtonPressed(MouseLeft)) {
 					UIindex = 0;
 				}
 			}
 			else if (UIindex == 2) {
 				ui2.draw(canvas);
-				if (canvas.keyPressed(VK_ESCAPE) || (b.ui2(mousex, mousey) == 1 && canvas.mouseButtonPressed(MouseLeft))) {
+				if (canvas.keyPressed(VK_ESCAPE) || (ui.ui2button(mousex, mousey) == 1 && canvas.mouseButtonPressed(MouseLeft))) {
 					UIindex = 0;
+				}
+			}
+			else if (UIindex == 3) {
+				if (ui.ui3button(mousex, mousey) == 1 && canvas.mouseButtonPressed(MouseLeft)) {
+					gameover = false;
+					UIindex = 0;
+				}
+				else if (ui.ui3button(mousex, mousey) == 2 && canvas.mouseButtonPressed(MouseLeft)) {
+					run = false;
+					break;
+				}
+			}
+			else if (UIindex == 4) {
+				if (ui.ui4button(mousex, mousey) == 1 && canvas.mouseButtonPressed(MouseLeft)) {
+					gameclear = false;
+					UIindex = 0;
+				}
+				else if (ui.ui4button(mousex, mousey) == 2 && canvas.mouseButtonPressed(MouseLeft)) {
+					run = false;
+					break;
 				}
 			}
 
 		}
-		if (!gamepalse && canvas.keyPressed(VK_ESCAPE)) {
-			gamepalse = true;
+		if (!gamepause && canvas.keyPressed(VK_ESCAPE)) {
+			gamepause = true;
 			UIindex = 1;
 		}
 		if (gameover) {
 			ui3.draw(canvas);
 			UIindex = 3;
-			gamepalse = true;
+			gamepause = true;
 		}
-		//if (gameover == true) {
-		//	run = false;
-		//	break;
-		//}
+		if (gameclear) {
+			ui4.draw(canvas);
+			UIindex = 4;
+			gamepause = true;
+		}
 
 
-		if (!gamepalse) {
-
-			if (p.health <= 0) { gameover = true; } // detect player health
-			if (level > LEVELNUM - 1) { gameover = true; }// all level done 
-
+		if (!gamepause) {
 
 			//WASD Player move ,set speed with consider of the scale
 			w[level].collisionplayer(canvas, p, wx[level], wy[level], u);
@@ -1860,6 +1984,10 @@ int main() {
 				aoetimer = 0;
 			}
 
+			playericon.draw(canvas);
+			ui.playerhealth(canvas, p);
+
+
 			Game_time[level] += dt;
 			if (Game_time[level] >= LEVELTIME[level]) {
 				cout << "LEVEL " << level << " CLEAR!" << endl;
@@ -1869,15 +1997,21 @@ int main() {
 				level++;
 			}
 
+			if (p.health <= 0) { gameover = true; } // detect player health
+			if (level >= LEVELNUM) { gameclear = true; }// all level done 
+
 			// update for each frame
 			framecount++;
 			secondcount += dt;
 			overframecount++;
-			int npc0d = s0.defeated[0] + s1.defeated[0];
-			int npc1d = s0.defeated[1] + s1.defeated[1];
-			int npc2d = s0.defeated[2] + s1.defeated[2];
-			int npc3d = s0.defeated[3] + s1.defeated[3];
-			p.score = npc0d * NPCSCORE[0] + npc1d * NPCSCORE[1] + npc2d * NPCSCORE[2] + npc3d * NPCSCORE[3];
+
+			int scorenow = 0;
+			for (int i = 0; i < 4; i++) {
+				for (int j = 0; j < LEVELNUM; j++) {
+					scorenow += s[j].defeated[i] * NPCSCORE[i];
+				}
+			}
+			p.score = scorenow;
 
 			// in game show every
 			if (secondcount >= INGAMESHOW) {
@@ -1886,8 +2020,6 @@ int main() {
 				int FPS = framecount / secondcount;
 				cout << "FPS:" << FPS << endl;
 				framecount = 0;
-
-				//score
 
 				secondcount = 0;
 			}
@@ -1906,28 +2038,25 @@ int main() {
 	cout << "SCORE: " << p.score << endl;
 
 	cout << "Detail:" << endl;
+	int npcg = 0;
+	int npcd = 0;
 
-	//cout << "NPC generated: " << sumarr<int>(s.generated, 4) << "\t";
-	//cout << "type0 (" << s.generated[0] << ")" << "\t";
-	//cout << "type1 (" << s.generated[1] << ")" << "\t";
-	//cout << "type2 (" << s.generated[2] << ")" << "\t";
-	//cout << "type3 (" << s.generated[3] << ")" << endl;
-
-	//cout << "NPC defeated: " << sumarr<int>(s.defeated, 4) << "\t";
-	//cout << "type0 (" << s.defeated[0] << ")" << "\t";
-	//cout << "type1 (" << s.defeated[1] << ")" << "\t";
-	//cout << "type2 (" << s.defeated[2] << ")" << "\t";
-	//cout << "type3 (" << s.defeated[3] << ")" << endl;
-
-	//cout << "NPC outranged: " << sumarr<int>(s.outrange, 4) << "\t";
-	//cout << "type0 (" << s.outrange[0] << ")" << "\t";
-	//cout << "type1 (" << s.outrange[1] << ")" << "\t";
-	//cout << "type2 (" << s.outrange[2] << ")" << "\t";
-	//cout << "type3 (" << s.outrange[3] << ")" << endl;
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < LEVELNUM; j++) {
+			npcg += s[j].generated[i];
+			npcd += s[j].defeated[i];
+		}
+		cout << "NPC" << i << ":\t""generated: " << npcg << "\t";
+		cout << " defeated: " << npcd << endl;
+		npcg = 0;
+		npcd = 0;
+	}
 
 
 	cout << "Game time: " << static_cast<int>(sumarr<float>(Game_time, LEVELNUM)) << "s" << endl;
+
 	int FPS = overframecount / sumarr<float>(Game_time, LEVELNUM);
+	if (FPS <= 0) { FPS = 0; }
 	cout << "Average FPS: " << FPS << endl;
 
 	//system("pause"); // prevent auto quit when game is over

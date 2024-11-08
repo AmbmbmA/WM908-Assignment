@@ -4,14 +4,13 @@
 #include <ctime>
 using namespace std;
 
-
 #include "GamesEngineeringBase.h"
 using namespace GamesEngineeringBase;
 
 
 //game const
 const unsigned int LEVELNUM = 2; // total level number
-const unsigned int LEVELTIME[LEVELNUM] = { 10,10 }; //level time length in second
+const unsigned int LEVELTIME[LEVELNUM] = { 120,120 }; //level time length in second
 const bool LEVELMAPINF[LEVELNUM] = { true,false };//level map infinity
 const unsigned int HORIBOND = 50; // horizontal bondwidth for finitemap
 const unsigned int VERTIBOND = 50;
@@ -23,15 +22,32 @@ const float SCALE = 1; //scale of the window,with modified character size and sp
 const int INMARGIN = 100; // range for the npc to spawn outside the cancas
 const int OUTMARGIN = 2000; // range for the npc to spawn outside the cancas
 const float SPAWNGAP = 1.0f; //initial spawn time gap
-const float SPAWNACC = 0.2f; // spawn accelerate gap
-const float MINSPAWNGAP = 0.5f; // MIN spawn gap
-const int MAXNUM = 20; // max number of NPC allow exist
+const float SPAWNACC = 0.04f; // spawn accelerate gap
+const float MINSPAWNGAP[LEVELNUM] = { 0.4f , 0.2f }; // MIN spawn gap
+const int MAXNUM = 30; // max number of NPC allow exist
 
 //character const
-const unsigned int PLAYERMAXHEALTH[1] = { 10 };
-const float PLAYERSPEED[1] = { 650 };
-const unsigned int NPCMAXHEALTH[4] = { 10 , 10 , 10 , 10 };
-const float NPCSPEED[4] = { 55 , 50 , 40 , 0 };
+
+//score
+const int MAXPLEVEL = 10;
+const int NPCSCORE[4] = { 10,20,30,40 };
+const int BASESCOREFORUP = 100;
+//health
+const unsigned int PLAYERMAXHEALTH[1] = { 3000 };
+const unsigned int NPCMAXHEALTH[4] = { 1000 , 2000 , 3000 , 4500 };
+//speed
+const float PLAYERSPEED[1] = { 70 };
+const float NPCSPEED[4] = { 60 , 55 , 45 , 0 };
+const int PROSPEED[2] = { 150, 30 };
+//atk
+const int CRASH = 1;
+const int PROJDAMAGE[2] = { 1500, 250 };
+const int PROJMAXT[2] = { 1500,3000 };
+const int AOEDAMAGE = 3000;
+const float AOECD = 5;
+
+
+
 
 // double linked list template
 template <typename T>
@@ -61,6 +77,8 @@ public:
 			current = next;
 		}
 	}
+
+	//coulde use pointer instead of reference
 
 	//add new element at head
 	void addfront(T& _data) {
@@ -115,7 +133,17 @@ public:
 		size--;
 	}
 
-
+	void clear() {
+		node<T>* current = head;
+		while (current != nullptr) {
+			node<T>* next = current->next;
+			delete current;
+			current = next;
+		}
+		head = nullptr;
+		tail = nullptr;
+		size = 0;
+	}
 
 	//find node for the data
 	node<T>* find(const T& _data) {
@@ -150,7 +178,7 @@ T sumarr(T* arr, int size) {
 	return sum;
 }
 
-// Game Sprite classes
+// Game Sprites classes
 class Sprites {
 protected:
 	Image sprite; //  sprite
@@ -182,9 +210,16 @@ public:
 	int getY() { return y; }
 	Image& getsprite() { return sprite; }
 
+	void changex(int _x) {
+		x = _x;
+	}
+	void changey(int _y) {
+		y = _y;
+	}
 
 };
 
+// Player 
 class Player : public Sprites {
 public:
 	float dx = 0; float dy = 0;
@@ -193,11 +228,15 @@ public:
 
 	int playerindex; // which player character
 	int health;
+	int plevel = 0;
+	int score = 0;
 	float speed;
-	bool Powerup;
+	float shootgap = 0.5f;
+
+	bool powerup = false;
+
 
 	Player(string filename, int _x, int _y, int _playerindex) : Sprites(filename, _x, _y), playerindex(_playerindex) {
-		Powerup = false;
 		health = PLAYERMAXHEALTH[playerindex];
 		speed = PLAYERSPEED[playerindex];
 		cx = _x;
@@ -206,6 +245,13 @@ public:
 		wyp = _y - sprite.height / 2;
 	}
 
+	int scoretolevelup() {
+		int scoretoup = 0;
+		for (int i = 0; i <= plevel; i++) {
+			scoretoup += BASESCOREFORUP * (i + 1);
+		}
+		return scoretoup;
+	}
 	void update(Window& canvas, int& wx, int& wy, float u) {
 
 		if (canvas.keyPressed('W') && canvas.keyPressed('A')) { //left above
@@ -259,23 +305,54 @@ public:
 			dy = 0;
 		}
 
+		if (plevel < MAXPLEVEL && score >= scoretolevelup()) {
+			cout << "Score reach " << scoretolevelup() << endl;
+			plevel += 1;
+			powerup = true;
+			cout << "PLAYER LEVEL UP --> " << plevel << endl;
+		}
+
+		if (plevel % 2 != 0 && powerup) { // powerup when odd level
+			shootgap -= 0.06;
+			cout << "SHOOT SPEED UP!" << endl;
+			powerup = false;
+		}
+
 	}
 
 	int getcX() { return cx; }
 	int getcY() { return cy; }
 
-
-
-	void shoot() {
+	void save(ofstream& save) {
+		save << "Player" << endl;
+		save << dx << endl;
+		save << dy << endl;
+		save << wxp << endl;
+		save << wyp << endl;
+		save << health << endl;
+		save << plevel << endl;
+		save << score << endl;
+		save << shootgap << endl;
 
 	}
 
-	void aoe() {
+	void load(ifstream& load) {
+		string head;
 
+		load >> head;
+		load >> dx;
+		load >> dy;
+		load >> wxp;
+		load >> wyp;
+		load >> health;
+		load >> plevel;
+		load >> score;
+		load >> shootgap;
 	}
 
 };
 
+// NPC
 class NPC : public Sprites {
 private:
 
@@ -283,10 +360,12 @@ public:
 	float dx = 0; float dy = 0;
 	int cx, cy; // center position relate to canvas
 	int wxi, wyi; // postion on the world
+	float length = 100000; // distance to the player, initial with a big positive number to avoid problem, update later
 
 	int npcindex;
 	int health;
 	float speed;
+	float shootgap[4] = { 0,0,0,2 };
 
 
 	NPC(string filename, int _x, int _y, int wx, int wy, int _npcindex) : Sprites(filename, _x, _y), npcindex(_npcindex) {
@@ -301,6 +380,7 @@ public:
 	int getcX() { return cx; }
 	int getcY() { return cy; }
 
+
 	void update(Window& canvas, Player& p, int wx, int wy, float u) {
 		// update xy based on the change of world
 		x += wxi - wx - cx;
@@ -311,13 +391,13 @@ public:
 		int px = p.getcX(); int py = p.getcY(); //  player world position
 		int difx = px - cx;
 		int dify = py - cy;
-		float length = sqrt(difx * difx + dify * dify);
+		length = sqrtf(difx * difx + dify * dify);
 
 		if (npcindex != 3) { // skip static one 
 
 			// always towards player
 			float ux = 0.0f; float uy = 0.0f; // direction scaler
-			if (length != 0) {
+			if (length >= (p.getsprite().width + getsprite().width) / 2) {
 				ux = difx / length;
 				uy = dify / length;
 			}
@@ -355,19 +435,35 @@ public:
 		}
 	}
 
+	void save(ofstream& save, int count) {
+		save << "NPC" << count << endl;
+		save << npcindex << endl;
+		save << dx << endl;
+		save << dy << endl;
+		save << getX() << endl;
+		save << getY() << endl;
+		save << cx << endl;
+		save << cy << endl;
+		save << wxi << endl;
+		save << wyi << endl;
+		save << health << endl;
+
+	}
+
+
+
 };
 
 // NPC spawn class
 class Spawn {
-public:
-	DBLL<NPC*> npc;
 	float timeElapsed = 0.0f; // time passed since last generate
 	float timeThreshold = SPAWNGAP; // generate time gap
+public:
+	DBLL<NPC*> npc;
 
 	int generated[4] = { 0,0,0,0 };
 	int outrange[4] = { 0,0,0,0 };
 	int defeated[4] = { 0,0,0,0 };
-
 
 	int randomnpcindex() {
 
@@ -376,8 +472,8 @@ public:
 		//probability of index
 		int p0 = 40;
 		int p1 = 30;
-		int p2 = 15;
-		int p3 = 15;
+		int p2 = 10;
+		int p3 = 20;
 
 		if (p >= 0 && p < p0) {
 			npcindex = 0;
@@ -395,7 +491,7 @@ public:
 		return npcindex;
 	}
 
-	void generate(Window& canvas, Player& p, int wx, int wy, float dt) {
+	void generate(Window& canvas, Player& p, int wx, int wy, float dt, int level) {
 		timeElapsed += dt;
 		bool full = false;
 		if (npc.getsize() >= MAXNUM) {
@@ -424,39 +520,39 @@ public:
 
 			//create npc
 			NPC* n = new NPC(filename, randomX, randomY, wx, wy, npcindex);
-			cout << "SPAWN " << "TYPE " << npcindex << " at: " << randomX << "\t" << randomY << endl;
+			//cout << "SPAWN " << "TYPE " << npcindex << " at: " << randomX << "\t" << randomY << endl;
 			generated[npcindex]++;
 			npc.addend(n);
 
 			timeElapsed = 0.0f; //reset
-			if (timeThreshold != MINSPAWNGAP) { // once reach limit, do not change
+			if (timeThreshold != MINSPAWNGAP[level]) { // once reach limit, do not change
 				timeThreshold -= SPAWNACC; // accelerate spawn rate
-				if (timeThreshold <= MINSPAWNGAP) {
-					timeThreshold = MINSPAWNGAP;// restrict the min gap
+				if (timeThreshold <= MINSPAWNGAP[level]) {
+					timeThreshold = MINSPAWNGAP[level];// restrict the min gap
 				}
 			}
 		}
 
 	}
 
-	void checkdelete(Window& canvas, node<NPC*>* node) {
+	void checkdelete(Window& canvas, node<NPC*>* npcc) {
 		int rightb = canvas.getWidth() + OUTMARGIN;
 		int leftb = -OUTMARGIN;
 		int bottomb = canvas.getHeight() + OUTMARGIN;
 		int upb = -OUTMARGIN;
 
-		if (node->data->getcX() > rightb ||
-			node->data->getcX() < leftb ||
-			node->data->getcY() > bottomb ||
-			node->data->getcY() < upb) {
-			cout << "One NPC (Type" << node->data->npcindex << ") has been destroyed because too far away." << endl;
-			outrange[node->data->npcindex]++;
-			npc.remove(node);
+		if (npcc->data->getcX() > rightb ||
+			npcc->data->getcX() < leftb ||
+			npcc->data->getcY() > bottomb ||
+			npcc->data->getcY() < upb) {
+			//cout << "One NPC (Type" << npcc->data->npcindex << ") has been destroyed because too far away." << endl;
+			outrange[npcc->data->npcindex]++;
+			npc.remove(npcc);
 		}
-		if (node->data->health <= 0) {
-			cout << "One NPC (Type" << node->data->npcindex << ") has been defeated;" << endl;
-			defeated[node->data->npcindex]++;
-			npc.remove(node);
+		if (npcc->data->health <= 0) {
+			//cout << "One NPC (Type" << npcc->data->npcindex << ") has been defeated;" << endl;
+			defeated[npcc->data->npcindex]++;
+			npc.remove(npcc);
 		}
 	}
 
@@ -464,9 +560,22 @@ public:
 
 	~Spawn() { npc.~DBLL(); } // free the double linked list
 
+	void pvn(Player& p) {
+
+		node<NPC*>* current = npc.gethead();
+		while (current != nullptr) {
+			node<NPC*>* next = current->next;
+			if (current->data->length <= (p.getsprite().width + current->data->getsprite().width) / 2) {
+				p.health -= CRASH;
+				current->data->health -= CRASH;
+			}
+			current = next;
+		}
+	}
+
 	// update position of npc
-	void update(Window& canvas, Player& p, int wx, int wy, float dt, float u) {
-		generate(canvas, p, wx, wy, dt);
+	void update(Window& canvas, Player& p, int wx, int wy, float dt, float u, int level) {
+		generate(canvas, p, wx, wy, dt, level);
 
 		node<NPC*>* current = npc.gethead();
 		while (current != nullptr) {
@@ -488,12 +597,628 @@ public:
 		}
 	}
 
+	void save(ofstream& save) {
+		save << "SPAWN" << endl;
+		save << timeElapsed << endl;
+		save << npc.getsize() << endl;
+		node<NPC*>* current = npc.gethead();
+		int count = 0;
+		while (current != nullptr) {
+			node<NPC*>* next = current->next;
+			current->data->save(save, count);
+			count++;
+			current = next;
+		}
+
+	}
+
+	void npcload(ifstream& load, int count) {
+		string head;
+		load >> head;
+		int npcindex;
+		load >> npcindex;
+		string filename = "Resources/npc" + to_string(npcindex) + ".png";
+		NPC* n = new NPC(filename, 0, 0, 0, 0, npcindex);
+		load >> n->dx;
+		load >> n->dy;
+		int temp;
+		load >> temp;
+		n->changex(temp);
+		load >> temp;
+		n->changey(temp);
+		load >> n->cx;
+		load >> n->cy;
+		load >> n->wxi;
+		load >> n->wyi;
+		load >> n->health;
+		npc.addend(n);
+	}
+
+	void load(ifstream& load) {
+		string head;
+		load >> head;
+		load >> timeElapsed;
+		int size;
+		load >> size;
+		if (npc.getsize() != 0) {
+			npc.clear();
+		}
+		for (int i = 0; i < size; i++) {
+			npcload(load, i);
+		}
+	}
 
 };
 
-// collision between Charaters,pojectiles
-class collision {
+// Projectiles
+class Projectile : public Sprites {
 
+public:
+	float dx = 0; float dy = 0;
+	int cx, cy; // center position relate to canvas
+	int wxpr, wypr; // postion on the world
+	float length = 100000;
+
+	int proindex;
+	float speed;
+	int mt = 0;
+
+	Projectile(string filename, int _x, int _y, int wx, int wy, int _proindex) : Sprites(filename, _x, _y), proindex(_proindex) {
+
+		cx = _x;
+		cy = _y;
+		wxpr = cx + wx; //stay the same on the map unless self move
+		wypr = cy + wy;
+		speed = PROSPEED[proindex];
+	}
+
+	int getcX() { return cx; }
+	int getcY() { return cy; }
+
+	void update(Window& canvas, int targetx, int targety, int wx, int wy, float u) {
+		// update xy based on the change of world
+		x += wxpr - wx - cx;
+		y += wypr - wy - cy;
+		mt += abs(wxpr - wx - cx) + abs(wypr - wy - cy);
+		cx = wxpr - wx;
+		cy = wypr - wy;
+
+		int difx = targetx - cx;
+		int dify = targety - cy;
+		length = sqrtf(difx * difx + dify * dify);
+
+		// always towards target
+		float ux = 0.0f; float uy = 0.0f; // direction scaler
+		if (length >= 0) {
+			ux = difx / length;
+			uy = dify / length;
+		}
+
+		float _dx = speed * 0.01f * ux * u;
+		float _dy = speed * 0.01f * uy * u;
+
+		dx += _dx;
+		dy += _dy;
+		mt += abs(_dx) + abs(_dy);
+
+		if (dx >= 3) {
+			x += 3;
+			cx += 3;
+			wxpr += 3;
+			dx = 0;
+		}
+		if (dx <= -3) {
+			x -= 3;
+			cx -= 3;
+			wxpr -= 3;
+			dx = 0;
+		}
+		if (dy >= 3) {
+			y += 3;
+			cy += 3;
+			wypr += 3;
+			dy = 0;
+		}
+		if (dy <= -3) {
+			y -= 3;
+			cy -= 3;
+			wypr -= 3;
+			dy = 0;
+		}
+	}
+
+	void save(ofstream& save, int count, int group) {
+		save << "PROJ" << count << "ofgroup" << group << endl;
+		save << proindex << endl;
+		save << dx << endl;
+		save << dy << endl;
+		save << getX() << endl;
+		save << getY() << endl;
+		save << cx << endl;
+		save << cy << endl;
+		save << wxpr << endl;
+		save << wypr << endl;
+		save << mt << endl;
+
+
+	}
+
+
+};
+
+class Projectilemanage {
+	float timeElapsed0 = 0.0f; // time passed since last generate
+	float timeElapsed1 = 0.0f; // time passed since last generate
+public:
+	DBLL<Projectile*> proj0; // Player proj
+	DBLL<Projectile*> proj1; // npc3 proj
+
+
+	Projectilemanage() {}
+
+	~Projectilemanage() { proj0.~DBLL(); /*proj1.~DBLL();*/ } // free the double linked list
+
+	// generate proj0 (player)
+	void generate0(Window& canvas, Player& p, int wx, int wy, float dt) {
+		timeElapsed0 += dt;
+		if (timeElapsed0 > p.shootgap) { // player shoot gap
+
+			string filename = "Resources/playerpro.png";
+
+			//create proj
+			Projectile* projn = new Projectile(filename, p.getcX(), p.getcY(), wx, wy, 0);
+			proj0.addend(projn);
+
+			timeElapsed0 = 0.0f; //reset
+		}
+	}
+
+	// check proj0 (player)
+	void checkdelete0(Window& canvas, node<Projectile*>* proj, node<NPC*>* npc) {
+		int rightb = canvas.getWidth() + OUTMARGIN;
+		int leftb = -OUTMARGIN;
+		int bottomb = canvas.getHeight() + OUTMARGIN;
+		int upb = -OUTMARGIN;
+
+		if (proj->data->getcX() > rightb ||
+			proj->data->getcX() < leftb ||
+			proj->data->getcY() > bottomb ||
+			proj->data->getcY() < upb) {
+			proj0.remove(proj);
+		}
+		else if (proj->data->length <= 10) {
+			proj0.remove(proj);
+			npc->data->health -= PROJDAMAGE[0];
+		}
+		else if (proj->data->mt >= PROJMAXT[0]) {
+			proj0.remove(proj);
+		}
+		else if (npc == nullptr) {
+			proj0.remove(proj);
+		}
+
+	}
+
+	// generate proj1 (npc3)
+	void generate1(Window& canvas, node<NPC*>* n, Player& p, int wx, int wy, float dt) {
+		timeElapsed1 += dt;
+		if (timeElapsed1 > n->data->shootgap[n->data->npcindex]) { // npc shoot gap
+
+			string filename = "Resources/npcpro" + to_string(n->data->npcindex) + ".png";
+
+			//create proj
+			Projectile* projn = new Projectile(filename, n->data->getcX(), n->data->getcY(), wx, wy, 1);
+			proj1.addend(projn);
+
+			timeElapsed1 = 0.0f; //reset
+		}
+
+	}
+
+	// check proj1 (npc3)
+	void checkdelete1(Window& canvas, node<Projectile*>* proj, Player& p) {
+		int rightb = canvas.getWidth() + OUTMARGIN;
+		int leftb = -OUTMARGIN;
+		int bottomb = canvas.getHeight() + OUTMARGIN;
+		int upb = -OUTMARGIN;
+
+		if (proj->data->getcX() > rightb ||
+			proj->data->getcX() < leftb ||
+			proj->data->getcY() > bottomb ||
+			proj->data->getcY() < upb) {
+			proj1.remove(proj);
+		}
+		else if (proj->data->length <= 10) {
+			proj1.remove(proj);
+			p.health -= PROJDAMAGE[1];
+		}
+		else if (proj->data->mt >= PROJMAXT[1]) {
+			proj1.remove(proj);
+		}
+
+	}
+
+	// update position of proj
+	void update(Window& canvas, Player& p, Spawn& s, int wx, int wy, float dt, float u) {
+
+		// proj0
+
+		node<NPC*>* currentn = s.npc.gethead();
+		if (currentn != nullptr) { // check if there is npc
+			generate0(canvas, p, wx, wy, dt);
+
+			node<NPC*>* target = s.npc.gethead(); // closesr to player
+			//go through all npc
+			while (currentn != nullptr) {
+				if (currentn->data->length < target->data->length) {
+					target = currentn;
+				}
+				currentn = currentn->next;
+			}
+
+
+
+			// go through each proj0 in the list
+			node<Projectile*>* currentp0 = proj0.gethead();
+			while (currentp0 != nullptr) {
+				node<Projectile*>* next = currentp0->next;
+
+				int targetx = target->data->getcX();
+				int targety = target->data->getcY();
+				currentp0->data->update(canvas, targetx, targety, wx, wy, u);
+
+				checkdelete0(canvas, currentp0, target);
+				currentp0 = next;
+			}
+		}
+
+
+		// proj1
+		node<NPC*>* currentnn = s.npc.gethead();
+		if (currentnn != nullptr) { // check if there is npc
+			while (currentnn != nullptr) { // go through all npc
+				if (currentnn->data->npcindex == 3) { // check if it is npc3
+					generate1(canvas, currentnn, p, wx, wy, dt);
+				}
+				currentnn = currentnn->next;
+			}
+		}
+		// go through each proj1 in the list
+		node<Projectile*>* currentp1 = proj1.gethead();
+		while (currentp1 != nullptr) {
+			node<Projectile*>* next = currentp1->next;
+			int targetx = p.getcX();
+			int targety = p.getcY();
+			currentp1->data->update(canvas, targetx, targety, wx, wy, u);
+
+			checkdelete1(canvas, currentp1, p);
+			currentp1 = next;
+		}
+
+	}
+
+	// draw proj on canvas
+	void draw(Window& canvas) {
+
+		// proj0
+		node<Projectile*>* currentp0 = proj0.gethead();
+		while (currentp0 != nullptr) {
+			currentp0->data->draw(canvas);
+			currentp0 = currentp0->next;
+		}
+
+		// proj1
+		node<Projectile*>* currentp1 = proj1.gethead();
+		while (currentp1 != nullptr) {
+			currentp1->data->draw(canvas);
+			currentp1 = currentp1->next;
+		}
+
+
+	}
+
+	void save(ofstream& save) {
+		save << "PROJMA" << endl;
+		save << timeElapsed0 << endl;
+		save << proj0.getsize() << endl;
+		save << timeElapsed1 << endl;
+		save << proj1.getsize() << endl;
+
+		node<Projectile*>* current0 = proj0.gethead();
+		int count0 = 0;
+		while (current0 != nullptr) {
+			node<Projectile*>* next = current0->next;
+			current0->data->save(save, count0, 0);
+			count0++;
+			current0 = next;
+		}
+
+		node<Projectile*>* current1 = proj1.gethead();
+		int count1 = 0;
+		while (current1 != nullptr) {
+			node<Projectile*>* next = current1->next;
+			current1->data->save(save, count1, 1);
+			count1++;
+			current1 = next;
+		}
+
+	}
+
+	void projload(ifstream& load, int count, int group) {
+		if (group == 0) {
+			string head;
+			load >> head;
+
+			int proindex;
+			load >> proindex;
+			string filename = "Resources/playerpro.png";
+			Projectile* proj = new Projectile(filename, 0, 0, 0, 0, proindex);
+			load >> proj->dx;
+			load >> proj->dy;
+			int temp;
+			load >> temp;
+			proj->changex(temp);
+			load >> temp;
+			proj->changey(temp);
+			load >> proj->cx;
+			load >> proj->cy;
+			load >> proj->wxpr;
+			load >> proj->wypr;
+			load >> proj->mt;
+			proj0.addend(proj);
+		}
+		else if (group == 1) {
+			string head;
+			load >> head;
+
+			int proindex;
+			load >> proindex;
+			string filename = "Resources/npcpro3.png";
+			Projectile* projj = new Projectile(filename, 0, 0, 0, 0, proindex);
+			load >> projj->dx;
+			load >> projj->dy;
+			int temp;
+			load >> temp;
+			projj->changex(temp);
+			load >> temp;
+			projj->changey(temp);
+			load >> projj->cx;
+			load >> projj->cy;
+			load >> projj->wxpr;
+			load >> projj->wypr;
+			load >> projj->mt;
+			proj1.addend(projj);
+		}
+
+	}
+
+	void load(ifstream& load) {
+		string head;
+		load >> head;
+
+		int size0, size1;
+		load >> timeElapsed0;
+		load >> size0;
+		load >> timeElapsed1;
+		load >> size1;
+		if (proj0.getsize() != 0) {
+			proj0.clear();
+		}
+		for (int i = 0; i < size0; i++) {
+			projload(load, i, 0);
+		}
+		if (proj1.getsize() != 0) {
+			proj1.clear();
+		}
+		for (int i = 0; i < size1; i++) {
+			projload(load, i, 1);
+		}
+	}
+
+};
+
+// player AOE attack
+class AOE {
+public:
+
+	int aoer = 200;
+	float lastatk = 0;
+	int aoenum = 4;
+	int cd = AOECD;
+	bool cooling = false;
+	NPC** aoetarget;
+
+	AOE() {}
+
+	~AOE() { delete[]aoetarget; }
+
+	bool checkwithin(node<NPC*>* n, int aoex, int aoey) {
+		float difx = n->data->cx - aoex;
+		float dify = n->data->cy - aoey;
+		float distance = sqrtf(difx * difx + dify * dify);
+		if (distance <= aoer) {
+			return true;
+		}
+		return false;
+	}
+
+	void detect(Spawn& s, int aoex, int aoey) {
+
+		if (aoetarget != nullptr) {
+			delete[]aoetarget;
+		}
+		aoetarget = new NPC * [aoenum];
+		for (int i = 0; i < aoenum; i++) {
+			aoetarget[i] = nullptr;
+		}
+
+
+		node<NPC*>* current = s.npc.gethead();
+		while (current != nullptr) { // for all npc
+			node<NPC*>* next = current->next;
+			if (checkwithin(current, aoex, aoey)) { // check within the aoe area
+				bool added = false;
+				for (int i = 0; i < aoenum; i++) {
+					if (aoetarget[i] == nullptr) {
+						aoetarget[i] = current->data;
+						added = true;
+						break;
+					}
+				}
+				if (!added) {
+					int lowest = 0;
+					for (int i = 1; i < aoenum; i++) {
+						if (aoetarget[i]->health < aoetarget[lowest]->health) {
+							lowest = i;
+						}
+					}
+
+					if (current->data->health > aoetarget[lowest]->health) {
+						aoetarget[lowest] = current->data;
+					}
+				}
+			}
+			current = next;
+		}
+	}
+
+	void atkdraw1(Window& canvas, int aoex, int aoey) {
+
+		for (int i = -aoer; i <= aoer; i++) {
+			for (int j = -aoer; j <= aoer; j++) {
+				if (i * i + j * j <= aoer * aoer) {
+					if (aoex + i >= 0 && aoex + i < canvas.getWidth() &&
+						aoey + j >= 0 && aoey + j < canvas.getHeight()) {
+						canvas.draw(aoex + i, aoey + j, 0, 0, 0);
+					}
+				}
+			}
+		}
+
+
+	}
+
+	void drawaim(Window& canvas, int aimx, int aimy, int aimr) {
+		// draw a ring circle with ringwidth
+		int ringwidth = 3;
+		for (int i = -aimr; i <= aimr; i++) {
+			for (int j = -aimr; j <= aimr; j++) {
+				int dsq = i * i + j * j;
+				if (dsq >= (aimr - ringwidth) * (aimr - ringwidth) && dsq <= aimr * aimr) { // for all with distance within the ring
+					if (aimx + i >= 0 && aimx + i < canvas.getWidth() &&
+						aimy + j >= 0 && aimy + j < canvas.getHeight()) {
+						canvas.draw(aimx + i, aimy + j, 255, 0, 0);
+					}
+				}
+			}
+		}
+
+		// draw aim cross
+		int crosslength = aimr / 2;
+		int crosswidth = 3;
+
+		//hori
+		for (int w = -crosswidth / 2; w <= crosswidth / 2; w++) {
+			for (int i = -crosslength; i <= crosslength; i++) {
+				if (aimx + i >= 0 && aimx + i < canvas.getWidth() &&
+					aimy + w >= 0 && aimy + w < canvas.getHeight()) {
+					canvas.draw(aimx + i, aimy + w, 0, 255, 0);
+				}
+			}
+		}
+
+		// verti
+		for (int w = -crosswidth / 2; w <= crosswidth / 2; w++) {
+			for (int j = -crosslength; j <= crosslength; j++) {
+				if (aimx + w >= 0 && aimx + w < canvas.getWidth() &&
+					aimy + j >= 0 && aimy + j < canvas.getHeight()) {
+					canvas.draw(aimx + w, aimy + j, 0, 255, 0);
+				}
+			}
+		}
+	}
+
+	void update(Player& p, float gametime) {
+		if (p.plevel % 2 == 0 && p.plevel != 0 && p.powerup) { // powerup when even level
+			aoenum += 1;
+			aoer += 20;
+			cout << "AOE ENHANCED!" << endl;
+			p.powerup = false;
+		}
+
+		if (cooling) {//check cd
+			if (gametime - lastatk >= cd) {
+				cooling = false;
+			}
+		}
+	}
+
+	bool atk(Window& canvas, Spawn& s, int aoex, int aoey, float gametime) {
+
+		if (!cooling) {
+			detect(s, aoex, aoey);
+
+			for (int i = 0; i < aoenum; i++) {
+				if (aoetarget[i] != nullptr) {
+					aoetarget[i]->health -= AOEDAMAGE;
+				}
+			}
+
+			lastatk = gametime;
+			cooling = true;
+			return true;
+		}
+		else {
+			return false;
+		}
+
+	}
+
+	void draw(Window& canvas, Spawn& s, int aoex, int aoey) {
+
+		drawaim(canvas, aoex, aoey, aoer);
+
+		detect(s, aoex, aoey);
+
+		if (!cooling) {
+			for (int i = 0; i < aoenum; i++) {
+				if (aoetarget[i] != nullptr) {
+					drawaim(canvas, aoetarget[i]->cx, aoetarget[i]->cy, aoetarget[i]->getsprite().width / 2);
+				}
+			}
+
+		}
+
+	}
+
+	void save(ofstream& save) {
+		int c = 0;
+		if (cooling) { int c = 1; }
+		save << "AOE" << endl;
+		save << aoer << endl;
+		save << lastatk << endl;
+		save << aoenum << endl;
+		save << cd << endl;
+		save << c << endl;
+	}
+
+	void load(ifstream& load) {
+		string head;
+		load >> head;
+
+		load >> aoer;
+		load >> lastatk;
+		load >> aoenum;
+		load >> cd;
+		int c;
+		load >> c;
+		if (c == 1) {
+			cooling = true;
+		}
+		else {
+			cooling = false;
+		}
+	}
 };
 
 // World tile classes
@@ -817,60 +1542,170 @@ public:
 	tileset& gettileset() { return tiles; }
 };
 
-// In game functions
-void savegame(unsigned int _slot = 1) {
+//UI button
+class button {
+public:
+
+	button() {}
+
+	int ui0(int x, int y) {
+		if (x >= 368 && x <= 614) {
+			if (y >= 225 && y <= 310) { //start
+				return 1;
+			}
+			else if (y >= 329 && y <= 415) { //load1
+				return 2;
+			}
+			else if (y >= 432 && y <= 512) { //load2
+				return 3;
+			}
+			else if (y >= 528 && y <= 606) { //control
+				return 4;
+			}
+			else if (y >= 624 && y <= 695) { //quit
+				return 5;
+			}
+		}
+
+		return 0;
+	}
+
+	int ui1(int x, int y) {
+		if (x >= 371 && x <= 617) {
+			if (y >= 224 && y <= 311) { //save1
+				return 1;
+			}
+			else if (y >= 324 && y <= 411) { //save2
+				return 2;
+			}
+			else if (y >= 431 && y <= 518) { //load1
+				return 3;
+			}
+			else if (y >= 542 && y <= 628) { //load2
+				return 4;
+			}
+			else if (y >= 646 && y <= 731) { //back
+				return 5;
+			}
+		}
+
+		if (x >= 18 && x <= 251 && y >= 227 && y <= 315) { return 6; } //Main
+
+
+		return 0;
+	}
+
+	int ui2(int x, int y) {
+		if (x >= 8 && x <= 253 && y >= 13 && y <= 100) { return 1; } //back
+
+		return 0;
+	}
+};
+
+bool fileexist(const string& filename) {
+	ifstream file(filename);
+	return file.good();
+}
+
+// save and load
+void savegame(int _slot, int& level, float* Game_time, int* wx, int* wy, world& w, Player& p, Spawn& s, Projectilemanage& proj, AOE& aoe) {
 	ofstream save;
 
-	save.open("save" + to_string(_slot), ios::out);
+	save.open("Save/save" + to_string(_slot) + ".txt", ios::out);
 
+	save << level << endl;
+	save << Game_time[level] << endl;
+	save << wx[level] << endl;
+	save << wy[level] << endl;
 
+	p.save(save);
+	s.save(save);
+	proj.save(save);
+	aoe.save(save);
 
 	save.close();
 
 }
 
-void loadgame(unsigned int _slot = 1) {
+bool loadgame(int _slot, int& level, float* Game_time, int* wx, int* wy, world& w, Player& p, Spawn& s, Projectilemanage& proj, AOE& aoe) {
 	ifstream load;
+	string filename;
+	filename = "Save/save" + to_string(_slot) + ".txt";
+	if (_slot == 0) { filename = "Save/startsave.txt"; }
+	if (fileexist(filename)) {
+		load.open(filename, ios::in);
 
-	load.open("save" + to_string(_slot), ios::in);
+		load >> level;
+		load >> Game_time[level];
+		load >> wx[level];
+		load >> wy[level];
 
+		p.load(load);
+		s.load(load);
+		proj.load(load);
+		aoe.load(load);
 
-	load.close();
+		load.close();
+		return true;
+	}
+
+	return false;
 }
-
-
 
 // main funtion
 int main() {
 	srand(time(0));// set seed for random
 	Timer timer;
 	bool run = true; //game loop run
+	bool gamepalse = true; // game palse
+	bool gameover = false;
+	int UIindex = 0;
 
 	// draw the canvas
 	Window canvas;
 	canvas.create(1024 * SCALE, 768 * SCALE, "WM908 Assignment u2064320");
-	//canvas.create(1536 * SCALE, 1152 * SCALE, "WM908 Assignment u2064320");//1.5
+
+
+	// UI 
+	Sprites ui0("Resources/ui0.png", canvas.getWidth() / 2, canvas.getHeight() / 2);
+	Sprites ui1("Resources/ui1.png", canvas.getWidth() / 2, canvas.getHeight() / 2);
+	Sprites ui2("Resources/ui2.png", canvas.getWidth() / 2, canvas.getHeight() / 2);
+	Sprites ui3("Resources/ui3.png", canvas.getWidth() / 2, canvas.getHeight() / 2);
 
 	// Create the world map
-
-	// Worlds
 
 	//from file
 	//world w("world.txt");
 
 	//random
-	world w0(1000, 1000, 0);
-	w0.savemapseed("world0.txt"); // save the seed
+	world w0(100, 100, 0);
+	w0.savemapseed("World/world0.txt"); // save the seed
 
-	world w1(1000, 1000, 1);
-	w1.savemapseed("world1.txt"); // save the seed
+	// random generate level 2 finite world
+	world w1(100, 100, 1); // random generate level 2 finite world
+	w1.savemapseed("World/world1.txt"); // save the seed
 
-	// creating Player with its initial position, health and speed
+	world w[LEVELNUM] = { w0,w1 };
+
+	// creating Player with its initial position at cenrter
 	Player p("Resources/Player1.png", canvas.getWidth() / 2, canvas.getHeight() / 2, 0);
 
-
 	// Random spawn NPC 
-	Spawn s;
+	Spawn s0, s1;
+	Spawn s[LEVELNUM] = { s0,s1 };
+
+	// Projectiles
+
+	Projectilemanage projl0, projl1;
+	Projectilemanage projl[LEVELNUM] = { projl0,projl1 };
+
+	// aoe
+	AOE aoe;
+	int aoeatk = 0;
+	float aoetimer = 0; //for visual effect
+
+	//button
+	button b;
 
 	// for in game show FPS
 	int framecount = 0;
@@ -885,10 +1720,10 @@ int main() {
 	int wy[LEVELNUM] = { 0,0 };
 
 	//center the canvas on map
-	wx[0] = w0.getsizex() * w0.gettileset()[0].getwidth() / 2;
-	wy[0] = w0.getsizey() * w0.gettileset()[0].getheight() / 2;
-	wx[1] = w1.getsizex() * w1.gettileset()[0].getwidth() / 2;
-	wy[1] = w1.getsizey() * w1.gettileset()[0].getheight() / 2;
+	for (int i = 0; i < LEVELNUM; i++) {
+		wx[i] = w[i].getsizex() * w[i].gettileset()[0].getwidth() / 2;
+		wy[i] = w[i].getsizey() * w[i].gettileset()[0].getheight() / 2;
+	}
 
 	// game level start from 0
 	int level = 0;
@@ -896,33 +1731,134 @@ int main() {
 	// main game loop
 	while (run)
 	{
-		bool gameover = false;
+
 		canvas.checkInput(); // detect the input
 		canvas.clear(); //clear this frame for next frame to be drawn
 
-
 		float dt = timer.dt(); //get dt value
-		//cout << dt;
-		//float u = 1 + 500 * dt; //create a unit for moving
 		float u = 2 + 2 * sin(100 * dt); //create a unit for moving
 		//this value would reflect the change of dt so smoother
 		//use sin in order to restrict the value oscillate around 1 based on dt value, and for all dt [0,1],this would work
 		//times 10 to increase the weigt of dt value to make it smoother
 
+		int mousex = canvas.getMouseInWindowX();
+		int mousey = canvas.getMouseInWindowY();
 
-		//Keypress game logic update
-		if (canvas.keyPressed(VK_ESCAPE)) break;  // ESC to quit the game
+		//UI
+		if (gamepalse) {
+			if (UIindex == 0) {
+				ui0.draw(canvas);
+				if (b.ui0(mousex, mousey) == 1 && canvas.mouseButtonPressed(MouseLeft)) {
+					if (loadgame(0, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe)) gamepalse = false;
+					gamepalse = false;
+				}
+				else if (b.ui0(mousex, mousey) == 2 && canvas.mouseButtonPressed(MouseLeft)) {
+					if (loadgame(1, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe)) gamepalse = false;
+				}
+				else if (b.ui0(mousex, mousey) == 3 && canvas.mouseButtonPressed(MouseLeft)) {
+					if (loadgame(2, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe)) gamepalse = false;
+				}
+				else if (b.ui0(mousex, mousey) == 4 && canvas.mouseButtonPressed(MouseLeft)) {
+					UIindex = 2;
+				}
+				else if (b.ui0(mousex, mousey) == 5 && canvas.mouseButtonPressed(MouseLeft)) {
+					run = false;
+					break;
+				}
+			}
+			else if (UIindex == 1) {
+				ui1.draw(canvas);
+				if (b.ui1(mousex, mousey) == 1 && canvas.mouseButtonPressed(MouseLeft)) {
+					savegame(1, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe);
+				}
+				else if (b.ui1(mousex, mousey) == 2 && canvas.mouseButtonPressed(MouseLeft)) {
+					savegame(2, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe);
+				}
+				else if (b.ui1(mousex, mousey) == 3 && canvas.mouseButtonPressed(MouseLeft)) {
+					loadgame(1, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe);
+					gamepalse = false;
+				}
+				else if (b.ui1(mousex, mousey) == 4 && canvas.mouseButtonPressed(MouseLeft)) {
+					loadgame(2, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe);
+					gamepalse = false;
+				}
+				else if (b.ui1(mousex, mousey) == 5 && canvas.mouseButtonPressed(MouseLeft)) {
+					gamepalse = false;
+				}
+				else if (b.ui1(mousex, mousey) == 6 && canvas.mouseButtonPressed(MouseLeft)) {
+					UIindex = 0;
+				}
+			}
+			else if (UIindex == 2) {
+				ui2.draw(canvas);
+				if (canvas.keyPressed(VK_ESCAPE) || (b.ui2(mousex, mousey) == 1 && canvas.mouseButtonPressed(MouseLeft))) {
+					UIindex = 0;
+				}
+			}
 
-		if (level == 0) {
+		}
+		if (!gamepalse && canvas.keyPressed(VK_ESCAPE)) {
+			gamepalse = true;
+			UIindex = 1;
+		}
+		if (gameover) {
+			ui3.draw(canvas);
+			UIindex = 3;
+			gamepalse = true;
+		}
+		//if (gameover == true) {
+		//	run = false;
+		//	break;
+		//}
+
+
+		if (!gamepalse) {
+
+			if (p.health <= 0) { gameover = true; } // detect player health
+			if (level > LEVELNUM - 1) { gameover = true; }// all level done 
+
+
 			//WASD Player move ,set speed with consider of the scale
-			w0.collisionplayer(canvas, p, wx[level], wy[level], u);
+			w[level].collisionplayer(canvas, p, wx[level], wy[level], u);
+			s[level].pvn(p);
+			aoe.update(p, Game_time[level]);
 			p.update(canvas, wx[level], wy[level], u);
-			s.update(canvas, p, wx[level], wy[level], dt, u);
-
+			s[level].update(canvas, p, wx[level], wy[level], dt, u, level);
+			projl[level].update(canvas, p, s[level], wx[level], wy[level], dt, u);
+			//aoe
+			if ((canvas.mouseButtonPressed(MouseLeft) && canvas.mouseButtonPressed(MouseRight)) || (canvas.mouseButtonPressed(MouseLeft) && canvas.keyPressed(VK_SPACE))) {
+				if (aoe.atk(canvas, s[level], mousex, mousey, Game_time[level])) {
+					aoeatk = 1;
+				}
+			}
+			else if (canvas.keyPressed(VK_SPACE) || canvas.keyPressed('K')) {
+				if (aoe.atk(canvas, s[level], p.cx, p.cy, Game_time[level])) {
+					aoeatk = 2;
+				}
+			}
 			// draw the frame
-			w0.draw(canvas, wx[level], wy[level]);
-			s.draw(canvas);
+			w[level].draw(canvas, wx[level], wy[level]);
+			s[level].draw(canvas);
 			p.draw(canvas);
+			projl[level].draw(canvas);
+			if (canvas.mouseButtonPressed(MouseLeft)) {
+				aoe.draw(canvas, s[level], mousex, mousey);
+			}
+			else if (canvas.keyPressed('J')) {
+				aoe.draw(canvas, s[level], p.cx, p.cy);
+			}
+			if (aoeatk == 1 && aoetimer <= 0.1) {
+				aoe.atkdraw1(canvas, mousex, mousey);
+				aoetimer += dt;
+			}
+			else if (aoeatk == 2 && aoetimer <= 0.1) {
+				aoe.atkdraw1(canvas, p.cx, p.cy);
+				aoetimer += dt;
+			}
+			else {
+				aoeatk = 0;
+				aoetimer = 0;
+			}
 
 			Game_time[level] += dt;
 			if (Game_time[level] >= LEVELTIME[level]) {
@@ -932,52 +1868,30 @@ int main() {
 				}
 				level++;
 			}
-		}
-		else if (level == 1) {
-			w1.collisionplayer(canvas, p, wx[level], wy[level], u);
-			p.update(canvas, wx[level], wy[level], u);
-			s.update(canvas, p, wx[level], wy[level], dt, u);
 
-			// draw the frame
-			w1.draw(canvas, wx[level], wy[level]);
-			s.draw(canvas);
-			p.draw(canvas);
+			// update for each frame
+			framecount++;
+			secondcount += dt;
+			overframecount++;
+			int npc0d = s0.defeated[0] + s1.defeated[0];
+			int npc1d = s0.defeated[1] + s1.defeated[1];
+			int npc2d = s0.defeated[2] + s1.defeated[2];
+			int npc3d = s0.defeated[3] + s1.defeated[3];
+			p.score = npc0d * NPCSCORE[0] + npc1d * NPCSCORE[1] + npc2d * NPCSCORE[2] + npc3d * NPCSCORE[3];
 
-			Game_time[level] += dt;
-			if (Game_time[level] >= LEVELTIME[level]) {
-				cout << "LEVEL " << level << " CLEAR!" << endl;
-				if (level < LEVELNUM - 1) {
-					cout << "LEVEL " << level + 1 << " START!" << endl;
-				}
-				level++;
+			// in game show every
+			if (secondcount >= INGAMESHOW) {
+
+				//FPS
+				int FPS = framecount / secondcount;
+				cout << "FPS:" << FPS << endl;
+				framecount = 0;
+
+				//score
+
+				secondcount = 0;
 			}
-		}
 
-
-
-		if (level > LEVELNUM - 1) { gameover = true; }// all level done 
-
-		if (gameover == true) {
-			run = false;
-			break;
-		}
-
-		// update for each frame
-		framecount++;
-		secondcount += dt;
-		overframecount++;
-
-		// in game show every
-		if (secondcount >= INGAMESHOW || canvas.mouseButtonPressed(MouseRight)) {
-
-			//FPS
-			int FPS = framecount / secondcount;
-			cout << "FPS:" << FPS << endl;
-			framecount = 0;
-
-			//score
-
-			secondcount = 0;
 		}
 
 		// display the frame drawn to the canvas created
@@ -988,30 +1902,31 @@ int main() {
 	cout << endl << endl;
 	cout << "GAME OVER" << endl;
 	cout << "THANKS FOR PLAYING" << endl;
-	cout << "Your overall score is: " << endl;
+	cout << "LEVEL CLEARED: " << level << endl;
+	cout << "SCORE: " << p.score << endl;
 
 	cout << "Detail:" << endl;
 
-	cout << "NPC generated: " << sumarr<int>(s.generated, 4) << "\t";
-	cout << "type0 (" << s.generated[0] << ")" << "\t";
-	cout << "type1 (" << s.generated[1] << ")" << "\t";
-	cout << "type2 (" << s.generated[2] << ")" << "\t";
-	cout << "type3 (" << s.generated[3] << ")" << endl;
+	//cout << "NPC generated: " << sumarr<int>(s.generated, 4) << "\t";
+	//cout << "type0 (" << s.generated[0] << ")" << "\t";
+	//cout << "type1 (" << s.generated[1] << ")" << "\t";
+	//cout << "type2 (" << s.generated[2] << ")" << "\t";
+	//cout << "type3 (" << s.generated[3] << ")" << endl;
 
-	cout << "NPC defeated: " << sumarr<int>(s.defeated, 4) << "\t";
-	cout << "type0 (" << s.defeated[0] << ")" << "\t";
-	cout << "type1 (" << s.defeated[1] << ")" << "\t";
-	cout << "type2 (" << s.defeated[2] << ")" << "\t";
-	cout << "type3 (" << s.defeated[3] << ")" << endl;
+	//cout << "NPC defeated: " << sumarr<int>(s.defeated, 4) << "\t";
+	//cout << "type0 (" << s.defeated[0] << ")" << "\t";
+	//cout << "type1 (" << s.defeated[1] << ")" << "\t";
+	//cout << "type2 (" << s.defeated[2] << ")" << "\t";
+	//cout << "type3 (" << s.defeated[3] << ")" << endl;
 
-	cout << "NPC outranged: " << sumarr<int>(s.outrange, 4) << "\t";
-	cout << "type0 (" << s.outrange[0] << ")" << "\t";
-	cout << "type1 (" << s.outrange[1] << ")" << "\t";
-	cout << "type2 (" << s.outrange[2] << ")" << "\t";
-	cout << "type3 (" << s.outrange[3] << ")" << endl;
+	//cout << "NPC outranged: " << sumarr<int>(s.outrange, 4) << "\t";
+	//cout << "type0 (" << s.outrange[0] << ")" << "\t";
+	//cout << "type1 (" << s.outrange[1] << ")" << "\t";
+	//cout << "type2 (" << s.outrange[2] << ")" << "\t";
+	//cout << "type3 (" << s.outrange[3] << ")" << endl;
 
 
-	cout << "Game time: " << sumarr<float>(Game_time, LEVELNUM) << "s" << endl;
+	cout << "Game time: " << static_cast<int>(sumarr<float>(Game_time, LEVELNUM)) << "s" << endl;
 	int FPS = overframecount / sumarr<float>(Game_time, LEVELNUM);
 	cout << "Average FPS: " << FPS << endl;
 
