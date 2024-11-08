@@ -185,7 +185,7 @@ protected:
 	int x, y; // position of the sprite, left up corner
 public:
 
-	
+
 	//constructor, load the sprite at given position and store basic  info
 	Sprites(string filename, int _x, int _y) {
 		sprite.load(filename);
@@ -1546,44 +1546,72 @@ public:
 class button {
 public:
 
-	button(){}
+	button() {}
 
-	// ui0 x 368 - 614
 	int ui0(int x, int y) {
 		if (x >= 368 && x <= 614) {
-			if(y >= 225 && y <= 310) { //start
+			if (y >= 225 && y <= 310) { //start
 				return 1;
 			}
-			else if (y >= 329 && y <= 415) {
+			else if (y >= 329 && y <= 415) { //load1
 				return 2;
 			}
-			else if (y >= 432 && y <= 512) {
+			else if (y >= 432 && y <= 512) { //load2
 				return 3;
 			}
-			else if (y >= 528 && y <= 606) {
+			else if (y >= 528 && y <= 606) { //control
 				return 4;
 			}
-			else if (y >= 624 && y <= 695) {
+			else if (y >= 624 && y <= 695) { //quit
 				return 5;
 			}
 		}
-		
+
 		return 0;
 	}
 
+	int ui1(int x, int y) {
+		if (x >= 371 && x <= 617) {
+			if (y >= 224 && y <= 311) { //save1
+				return 1;
+			}
+			else if (y >= 324 && y <= 411) { //save2
+				return 2;
+			}
+			else if (y >= 431 && y <= 518) { //load1
+				return 3;
+			}
+			else if (y >= 542 && y <= 628) { //load2
+				return 4;
+			}
+			else if (y >= 646 && y <= 731) { //back
+				return 5;
+			}
+		}
 
+		if (x >= 18 && x <= 251 && y >= 227 && y <= 315) { return 6; } //Main
+
+
+		return 0;
+	}
+
+	int ui2(int x, int y) {
+		if (x >= 8 && x <= 253 && y >= 13 && y <= 100) { return 1; } //back
+
+		return 0;
+	}
 };
 
 bool fileexist(const string& filename) {
-	ifstream file(filename); 
-	return file.good(); 
+	ifstream file(filename);
+	return file.good();
 }
 
 // save and load
 void savegame(int _slot, int& level, float* Game_time, int* wx, int* wy, world& w, Player& p, Spawn& s, Projectilemanage& proj, AOE& aoe) {
 	ofstream save;
 
-	save.open("save" + to_string(_slot), ios::out);
+	save.open("Save/save" + to_string(_slot) + ".txt", ios::out);
 
 	save << level << endl;
 	save << Game_time[level] << endl;
@@ -1595,14 +1623,15 @@ void savegame(int _slot, int& level, float* Game_time, int* wx, int* wy, world& 
 	proj.save(save);
 	aoe.save(save);
 
-
 	save.close();
 
 }
 
-void loadgame(int _slot, int& level, float* Game_time, int* wx, int* wy, world& w, Player& p, Spawn& s, Projectilemanage& proj, AOE& aoe) {
+bool loadgame(int _slot, int& level, float* Game_time, int* wx, int* wy, world& w, Player& p, Spawn& s, Projectilemanage& proj, AOE& aoe) {
 	ifstream load;
-	string filename = "save" + to_string(_slot);
+	string filename;
+	filename = "Save/save" + to_string(_slot) + ".txt";
+	if (_slot == 0) { filename = "Save/startsave.txt"; }
 	if (fileexist(filename)) {
 		load.open(filename, ios::in);
 
@@ -1617,9 +1646,10 @@ void loadgame(int _slot, int& level, float* Game_time, int* wx, int* wy, world& 
 		aoe.load(load);
 
 		load.close();
+		return true;
 	}
 
-
+	return false;
 }
 
 // main funtion
@@ -1635,13 +1665,13 @@ int main() {
 	Window canvas;
 	canvas.create(1024 * SCALE, 768 * SCALE, "WM908 Assignment u2064320");
 
-	
+
 	// UI 
 	Sprites ui0("Resources/ui0.png", canvas.getWidth() / 2, canvas.getHeight() / 2);
 	Sprites ui1("Resources/ui1.png", canvas.getWidth() / 2, canvas.getHeight() / 2);
 	Sprites ui2("Resources/ui2.png", canvas.getWidth() / 2, canvas.getHeight() / 2);
 	Sprites ui3("Resources/ui3.png", canvas.getWidth() / 2, canvas.getHeight() / 2);
-	
+
 	// Create the world map
 
 	//from file
@@ -1649,11 +1679,11 @@ int main() {
 
 	//random
 	world w0(100, 100, 0);
-	w0.savemapseed("world0.txt"); // save the seed
+	w0.savemapseed("World/world0.txt"); // save the seed
 
 	// random generate level 2 finite world
 	world w1(100, 100, 1); // random generate level 2 finite world
-	w1.savemapseed("world1.txt"); // save the seed
+	w1.savemapseed("World/world1.txt"); // save the seed
 
 	world w[LEVELNUM] = { w0,w1 };
 
@@ -1661,19 +1691,17 @@ int main() {
 	Player p("Resources/Player1.png", canvas.getWidth() / 2, canvas.getHeight() / 2, 0);
 
 	// Random spawn NPC 
-	Spawn s0;
-	Spawn s1;
+	Spawn s0, s1;
 	Spawn s[LEVELNUM] = { s0,s1 };
 
 	// Projectiles
 
-	Projectilemanage projl0;
-	Projectilemanage projl1;
+	Projectilemanage projl0, projl1;
 	Projectilemanage projl[LEVELNUM] = { projl0,projl1 };
 
 	// aoe
 	AOE aoe;
-	int aoeatk = 0; 
+	int aoeatk = 0;
 	float aoetimer = 0; //for visual effect
 
 	//button
@@ -1721,17 +1749,17 @@ int main() {
 			if (UIindex == 0) {
 				ui0.draw(canvas);
 				if (b.ui0(mousex, mousey) == 1 && canvas.mouseButtonPressed(MouseLeft)) {
-					gamepalse = false;		
-				}
-				else if (b.ui0(mousex, mousey) == 2 && canvas.mouseButtonPressed(MouseLeft)) {
-					loadgame(1, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe);
+					if (loadgame(0, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe)) gamepalse = false;
 					gamepalse = false;
 				}
+				else if (b.ui0(mousex, mousey) == 2 && canvas.mouseButtonPressed(MouseLeft)) {
+					if (loadgame(1, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe)) gamepalse = false;
+				}
 				else if (b.ui0(mousex, mousey) == 3 && canvas.mouseButtonPressed(MouseLeft)) {
-					loadgame(2, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe);
+					if (loadgame(2, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe)) gamepalse = false;
 				}
 				else if (b.ui0(mousex, mousey) == 4 && canvas.mouseButtonPressed(MouseLeft)) {
-					
+					UIindex = 2;
 				}
 				else if (b.ui0(mousex, mousey) == 5 && canvas.mouseButtonPressed(MouseLeft)) {
 					run = false;
@@ -1740,28 +1768,49 @@ int main() {
 			}
 			else if (UIindex == 1) {
 				ui1.draw(canvas);
-				
+				if (b.ui1(mousex, mousey) == 1 && canvas.mouseButtonPressed(MouseLeft)) {
+					savegame(1, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe);
+				}
+				else if (b.ui1(mousex, mousey) == 2 && canvas.mouseButtonPressed(MouseLeft)) {
+					savegame(2, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe);
+				}
+				else if (b.ui1(mousex, mousey) == 3 && canvas.mouseButtonPressed(MouseLeft)) {
+					loadgame(1, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe);
+					gamepalse = false;
+				}
+				else if (b.ui1(mousex, mousey) == 4 && canvas.mouseButtonPressed(MouseLeft)) {
+					loadgame(2, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe);
+					gamepalse = false;
+				}
+				else if (b.ui1(mousex, mousey) == 5 && canvas.mouseButtonPressed(MouseLeft)) {
+					gamepalse = false;
+				}
+				else if (b.ui1(mousex, mousey) == 6 && canvas.mouseButtonPressed(MouseLeft)) {
+					UIindex = 0;
+				}
 			}
-			
-			
+			else if (UIindex == 2) {
+				ui2.draw(canvas);
+				if (canvas.keyPressed(VK_ESCAPE) || (b.ui2(mousex, mousey) == 1 && canvas.mouseButtonPressed(MouseLeft))) {
+					UIindex = 0;
+				}
+			}
+
 		}
 		if (!gamepalse && canvas.keyPressed(VK_ESCAPE)) {
 			gamepalse = true;
 			UIindex = 1;
 		}
-		if (!gamepalse && canvas.keyPressed(VK_ESCAPE)) {
+		if (gameover) {
+			ui3.draw(canvas);
+			UIindex = 3;
 			gamepalse = true;
-			UIindex = 1;
 		}
+		//if (gameover == true) {
+		//	run = false;
+		//	break;
+		//}
 
-
-
-		if (canvas.keyPressed('O')) {
-			savegame(1, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe);
-		}
-		if (canvas.keyPressed('L')) {
-			loadgame(1, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe);
-		}
 
 		if (!gamepalse) {
 
@@ -1818,12 +1867,6 @@ int main() {
 					cout << "LEVEL " << level + 1 << " START!" << endl;
 				}
 				level++;
-			}
-
-
-			if (gameover == true) {
-				run = false;
-				break;
 			}
 
 			// update for each frame
@@ -1889,114 +1932,3 @@ int main() {
 
 	//system("pause"); // prevent auto quit when game is over
 }
-
-/*
-if (level == 0) {
-	//WASD Player move ,set speed with consider of the scale
-	w[level].collisionplayer(canvas, p, wx[level], wy[level], u);
-	s[level].pvn(p);
-	aoe.update(p, Game_time[level]);
-	p.update(canvas, wx[level], wy[level], u);
-	s[level].update(canvas, p, wx[level], wy[level], dt, u, level);
-	projl[level].update(canvas, p, s[level], wx[level], wy[level], dt, u);
-	//aoe
-	if ((canvas.mouseButtonPressed(MouseLeft) && canvas.mouseButtonPressed(MouseRight)) || (canvas.mouseButtonPressed(MouseLeft) && canvas.keyPressed(VK_SPACE))) {
-		if (aoe.atk(canvas, s[level], mousex, mousey, Game_time[level])) {
-			aoeatk = 1;
-		}
-	}
-	else if (canvas.keyPressed(VK_SPACE) || canvas.keyPressed('K')) {
-		if (aoe.atk(canvas, s[level], p.cx, p.cy, Game_time[level])) {
-			aoeatk = 2;
-		}
-	}
-	// draw the frame
-	w[level].draw(canvas, wx[level], wy[level]);
-	s[level].draw(canvas);
-	p.draw(canvas);
-	projl[level].draw(canvas);
-	if (canvas.mouseButtonPressed(MouseLeft)) {
-		aoe.draw(canvas, s[level], mousex, mousey);
-	}
-	else if (canvas.keyPressed('J')) {
-		aoe.draw(canvas, s[level], p.cx, p.cy);
-	}
-	if (aoeatk == 1 && aoetimer <= 0.1) {
-		aoe.atkdraw1(canvas, mousex, mousey);
-		aoetimer += dt;
-	}
-	else if (aoeatk == 2 && aoetimer <= 0.1) {
-		aoe.atkdraw1(canvas, p.cx, p.cy);
-		aoetimer += dt;
-	}
-	else {
-		aoeatk = 0;
-		aoetimer = 0;
-	}
-
-
-
-	Game_time[level] += dt;
-	if (Game_time[level] >= LEVELTIME[level]) {
-		cout << "LEVEL " << level << " CLEAR!" << endl;
-		if (level < LEVELNUM - 1) {
-			cout << "LEVEL " << level + 1 << " START!" << endl;
-		}
-		level++;
-	}
-}
-else if (level == 1) {
-	w1.collisionplayer(canvas, p, wx[level], wy[level], u);
-	s1.pvn(p);
-	aoe.update(p, Game_time[level]);
-	p.update(canvas, wx[level], wy[level], u);
-	s1.update(canvas, p, wx[level], wy[level], dt, u, level);
-	projl1.update(canvas, p, s1, wx[level], wy[level], dt, u);
-	//aoe
-	if ((canvas.mouseButtonPressed(MouseLeft) && canvas.mouseButtonPressed(MouseRight)) || (canvas.mouseButtonPressed(MouseLeft) && canvas.keyPressed(VK_SPACE))) {
-		if (aoe.atk(canvas, s1, mousex, mousey, Game_time[level])) {
-			aoeatk = 1;
-		}
-	}
-	else if (canvas.keyPressed(VK_SPACE) || canvas.keyPressed('K')) {
-		if (aoe.atk(canvas, s1, p.cx, p.cy, Game_time[level])) {
-			aoeatk = 2;
-		}
-	}
-
-	// draw the frame
-	w1.draw(canvas, wx[level], wy[level]);
-	p.draw(canvas);
-	s1.draw(canvas);
-	projl1.draw(canvas);
-	if (canvas.mouseButtonPressed(MouseLeft)) {
-		aoe.draw(canvas, s1, mousex, mousey);
-	}
-	else if (canvas.keyPressed('J')) {
-		aoe.draw(canvas, s1, p.cx, p.cy);
-	}
-
-	if (aoeatk == 1 && aoetimer <= 0.1) {
-		aoe.atkdraw1(canvas, mousex, mousey);
-		aoetimer += dt;
-	}
-	else if (aoeatk == 2 && aoetimer <= 0.1) {
-		aoe.atkdraw1(canvas, p.cx, p.cy);
-		aoetimer += dt;
-	}
-	else {
-		aoeatk = 0;
-		aoetimer = 0;
-	}
-
-	Game_time[level] += dt;
-	if (Game_time[level] >= LEVELTIME[level]) {
-		cout << "LEVEL " << level << " CLEAR!" << endl;
-		if (level < LEVELNUM - 1) {
-			cout << "LEVEL " << level + 1 << " START!" << endl;
-		}
-		level++;
-	}
-}
-
-*/
