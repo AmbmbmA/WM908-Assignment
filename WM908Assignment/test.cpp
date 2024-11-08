@@ -4,7 +4,6 @@
 #include <ctime>
 using namespace std;
 
-
 #include "GamesEngineeringBase.h"
 using namespace GamesEngineeringBase;
 
@@ -28,6 +27,7 @@ const float MINSPAWNGAP[LEVELNUM] = { 0.4f , 0.2f }; // MIN spawn gap
 const int MAXNUM = 30; // max number of NPC allow exist
 
 //character const
+
 //score
 const int MAXPLEVEL = 10;
 const int NPCSCORE[4] = { 10,20,30,40 };
@@ -45,8 +45,7 @@ const int PROJDAMAGE[2] = { 1500, 250 };
 const int PROJMAXT[2] = { 1500,3000 };
 const int AOEDAMAGE = 3000;
 const float AOECD = 5;
-const float PUCD = 45;
-const float PUTIME = 15;
+
 
 
 
@@ -186,7 +185,7 @@ protected:
 	int x, y; // position of the sprite, left up corner
 public:
 
-
+	
 	//constructor, load the sprite at given position and store basic  info
 	Sprites(string filename, int _x, int _y) {
 		sprite.load(filename);
@@ -633,7 +632,6 @@ public:
 		load >> n->wyi;
 		load >> n->health;
 		npc.addend(n);
-		cout << npc.getsize() << endl;
 	}
 
 	void load(ifstream& load) {
@@ -948,10 +946,9 @@ public:
 
 	void projload(ifstream& load, int count, int group) {
 		if (group == 0) {
-			string head = "";
-			while (head != "PROJ" + to_string(count) + "ofgroup" + to_string(group)) {
-				load >> head;
-			}
+			string head;
+			load >> head;
+
 			int proindex;
 			load >> proindex;
 			string filename = "Resources/playerpro.png";
@@ -971,10 +968,9 @@ public:
 			proj0.addend(proj);
 		}
 		else if (group == 1) {
-			string head = "";
-			while (head != "PROJ" + to_string(count) + "ofgroup" + to_string(group)) {
-				load >> head;
-			}
+			string head;
+			load >> head;
+
 			int proindex;
 			load >> proindex;
 			string filename = "Resources/npcpro3.png";
@@ -997,10 +993,9 @@ public:
 	}
 
 	void load(ifstream& load) {
-		string head = "";
-		while (head != "PROJMA") {
-			load >> head;
-		}
+		string head;
+		load >> head;
+
 		int size0, size1;
 		load >> timeElapsed0;
 		load >> size0;
@@ -1208,10 +1203,9 @@ public:
 	}
 
 	void load(ifstream& load) {
-		string head = "";
-		while (head != "AOE") {
-			load >> head;
-		}
+		string head;
+		load >> head;
+
 		load >> aoer;
 		load >> lastatk;
 		load >> aoenum;
@@ -1225,11 +1219,6 @@ public:
 			cooling = false;
 		}
 	}
-};
-
-// display UI
-class display {
-
 };
 
 // World tile classes
@@ -1553,6 +1542,43 @@ public:
 	tileset& gettileset() { return tiles; }
 };
 
+//UI button
+class button {
+public:
+
+	button(){}
+
+	// ui0 x 368 - 614
+	int ui0(int x, int y) {
+		if (x >= 368 && x <= 614) {
+			if(y >= 225 && y <= 310) { //start
+				return 1;
+			}
+			else if (y >= 329 && y <= 415) {
+				return 2;
+			}
+			else if (y >= 432 && y <= 512) {
+				return 3;
+			}
+			else if (y >= 528 && y <= 606) {
+				return 4;
+			}
+			else if (y >= 624 && y <= 695) {
+				return 5;
+			}
+		}
+		
+		return 0;
+	}
+
+
+};
+
+bool fileexist(const string& filename) {
+	ifstream file(filename); 
+	return file.good(); 
+}
+
 // save and load
 void savegame(int _slot, int& level, float* Game_time, int* wx, int* wy, world& w, Player& p, Spawn& s, Projectilemanage& proj, AOE& aoe) {
 	ofstream save;
@@ -1576,20 +1602,24 @@ void savegame(int _slot, int& level, float* Game_time, int* wx, int* wy, world& 
 
 void loadgame(int _slot, int& level, float* Game_time, int* wx, int* wy, world& w, Player& p, Spawn& s, Projectilemanage& proj, AOE& aoe) {
 	ifstream load;
+	string filename = "save" + to_string(_slot);
+	if (fileexist(filename)) {
+		load.open(filename, ios::in);
 
-	load.open("save" + to_string(_slot), ios::in);
+		load >> level;
+		load >> Game_time[level];
+		load >> wx[level];
+		load >> wy[level];
 
-	load >> level;
-	load >> Game_time[level];
-	load >> wx[level];
-	load >> wy[level];
+		p.load(load);
+		s.load(load);
+		proj.load(load);
+		aoe.load(load);
 
-	p.load(load);
-	s.load(load);
-	proj.load(load);
-	aoe.load(load);
+		load.close();
+	}
 
-	load.close();
+
 }
 
 // main funtion
@@ -1597,15 +1627,22 @@ int main() {
 	srand(time(0));// set seed for random
 	Timer timer;
 	bool run = true; //game loop run
+	bool gamepalse = true; // game palse
+	bool gameover = false;
+	int UIindex = 0;
 
 	// draw the canvas
 	Window canvas;
 	canvas.create(1024 * SCALE, 768 * SCALE, "WM908 Assignment u2064320");
-	//canvas.create(1536 * SCALE, 1152 * SCALE, "WM908 Assignment u2064320");//1.5
 
+	
+	// UI 
+	Sprites ui0("Resources/ui0.png", canvas.getWidth() / 2, canvas.getHeight() / 2);
+	Sprites ui1("Resources/ui1.png", canvas.getWidth() / 2, canvas.getHeight() / 2);
+	Sprites ui2("Resources/ui2.png", canvas.getWidth() / 2, canvas.getHeight() / 2);
+	Sprites ui3("Resources/ui3.png", canvas.getWidth() / 2, canvas.getHeight() / 2);
+	
 	// Create the world map
-
-	// Worlds
 
 	//from file
 	//world w("world.txt");
@@ -1618,21 +1655,29 @@ int main() {
 	world w1(100, 100, 1); // random generate level 2 finite world
 	w1.savemapseed("world1.txt"); // save the seed
 
-	// creating Player with its initial position, health and speed
+	world w[LEVELNUM] = { w0,w1 };
+
+	// creating Player with its initial position at cenrter
 	Player p("Resources/Player1.png", canvas.getWidth() / 2, canvas.getHeight() / 2, 0);
 
 	// Random spawn NPC 
 	Spawn s0;
 	Spawn s1;
+	Spawn s[LEVELNUM] = { s0,s1 };
 
 	// Projectiles
+
 	Projectilemanage projl0;
 	Projectilemanage projl1;
+	Projectilemanage projl[LEVELNUM] = { projl0,projl1 };
 
 	// aoe
 	AOE aoe;
-	int aoeatk = 0; // not attack
-	float aoetimer = 0;
+	int aoeatk = 0; 
+	float aoetimer = 0; //for visual effect
+
+	//button
+	button b;
 
 	// for in game show FPS
 	int framecount = 0;
@@ -1647,10 +1692,10 @@ int main() {
 	int wy[LEVELNUM] = { 0,0 };
 
 	//center the canvas on map
-	wx[0] = w0.getsizex() * w0.gettileset()[0].getwidth() / 2;
-	wy[0] = w0.getsizey() * w0.gettileset()[0].getheight() / 2;
-	wx[1] = w1.getsizex() * w1.gettileset()[0].getwidth() / 2;
-	wy[1] = w1.getsizey() * w1.gettileset()[0].getheight() / 2;
+	for (int i = 0; i < LEVELNUM; i++) {
+		wx[i] = w[i].getsizex() * w[i].gettileset()[0].getwidth() / 2;
+		wy[i] = w[i].getsizey() * w[i].gettileset()[0].getheight() / 2;
+	}
 
 	// game level start from 0
 	int level = 0;
@@ -1658,10 +1703,9 @@ int main() {
 	// main game loop
 	while (run)
 	{
-		bool gameover = false;
+
 		canvas.checkInput(); // detect the input
 		canvas.clear(); //clear this frame for next frame to be drawn
-
 
 		float dt = timer.dt(); //get dt value
 		float u = 2 + 2 * sin(100 * dt); //create a unit for moving
@@ -1669,134 +1713,113 @@ int main() {
 		//use sin in order to restrict the value oscillate around 1 based on dt value, and for all dt [0,1],this would work
 		//times 10 to increase the weigt of dt value to make it smoother
 
-
-		//Keypress game logic update
-		if (canvas.keyPressed(VK_ESCAPE)) break;  // ESC to quit the game
 		int mousex = canvas.getMouseInWindowX();
 		int mousey = canvas.getMouseInWindowY();
 
+		//UI
+		if (gamepalse) {
+			if (UIindex == 0) {
+				ui0.draw(canvas);
+				if (b.ui0(mousex, mousey) == 1 && canvas.mouseButtonPressed(MouseLeft)) {
+					gamepalse = false;		
+				}
+				else if (b.ui0(mousex, mousey) == 2 && canvas.mouseButtonPressed(MouseLeft)) {
+					loadgame(1, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe);
+					gamepalse = false;
+				}
+				else if (b.ui0(mousex, mousey) == 3 && canvas.mouseButtonPressed(MouseLeft)) {
+					loadgame(2, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe);
+				}
+				else if (b.ui0(mousex, mousey) == 4 && canvas.mouseButtonPressed(MouseLeft)) {
+					
+				}
+				else if (b.ui0(mousex, mousey) == 5 && canvas.mouseButtonPressed(MouseLeft)) {
+					run = false;
+					break;
+				}
+			}
+			else if (UIindex == 1) {
+				ui1.draw(canvas);
+				
+			}
+			
+			
+		}
+		if (!gamepalse && canvas.keyPressed(VK_ESCAPE)) {
+			gamepalse = true;
+			UIindex = 1;
+		}
+		if (!gamepalse && canvas.keyPressed(VK_ESCAPE)) {
+			gamepalse = true;
+			UIindex = 1;
+		}
+
+
+
 		if (canvas.keyPressed('O')) {
-			savegame(1, level, Game_time, wx, wy, w0, p, s0, projl0, aoe);
+			savegame(1, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe);
 		}
 		if (canvas.keyPressed('L')) {
-			loadgame(1, level, Game_time, wx, wy, w0, p, s0, projl0, aoe);
+			loadgame(1, level, Game_time, wx, wy, w[level], p, s[level], projl[level], aoe);
 		}
 
-		if (canvas.keyPressed('P') != true) {
+		if (!gamepalse) {
 
 			if (p.health <= 0) { gameover = true; } // detect player health
-
-			if (level == 0) {
-				//WASD Player move ,set speed with consider of the scale
-				w0.collisionplayer(canvas, p, wx[level], wy[level], u);
-				s0.pvn(p);
-				aoe.update(p, Game_time[level]);
-				p.update(canvas, wx[level], wy[level], u);
-				s0.update(canvas, p, wx[level], wy[level], dt, u, level);
-				projl0.update(canvas, p, s0, wx[level], wy[level], dt, u);
-				//aoe
-				if ((canvas.mouseButtonPressed(MouseLeft) && canvas.mouseButtonPressed(MouseRight)) || (canvas.mouseButtonPressed(MouseLeft) && canvas.keyPressed(VK_SPACE))) {
-					if (aoe.atk(canvas, s0, mousex, mousey, Game_time[level])) {
-						aoeatk = 1;
-					}
-				}
-				else if (canvas.keyPressed(VK_SPACE) || canvas.keyPressed('K')) {
-					if (aoe.atk(canvas, s0, p.cx, p.cy, Game_time[level])) {
-						aoeatk = 2;
-					}
-				}
-				// draw the frame
-				w0.draw(canvas, wx[level], wy[level]);
-				s0.draw(canvas);
-				p.draw(canvas);
-				projl0.draw(canvas);
-				if (canvas.mouseButtonPressed(MouseLeft)) {
-					aoe.draw(canvas, s0, mousex, mousey);
-				}
-				else if (canvas.keyPressed('J')) {
-					aoe.draw(canvas, s0, p.cx, p.cy);
-				}
-				if (aoeatk == 1 && aoetimer <= 0.1) {
-					aoe.atkdraw1(canvas, mousex, mousey);
-					aoetimer += dt;
-				}
-				else if (aoeatk == 2 && aoetimer <= 0.1) {
-					aoe.atkdraw1(canvas, p.cx, p.cy);
-					aoetimer += dt;
-				}
-				else {
-					aoeatk = 0;
-					aoetimer = 0;
-				}
-
-
-
-				Game_time[level] += dt;
-				if (Game_time[level] >= LEVELTIME[level]) {
-					cout << "LEVEL " << level << " CLEAR!" << endl;
-					if (level < LEVELNUM - 1) {
-						cout << "LEVEL " << level + 1 << " START!" << endl;
-					}
-					level++;
-				}
-			}
-			else if (level == 1) {
-				w1.collisionplayer(canvas, p, wx[level], wy[level], u);
-				s1.pvn(p);
-				aoe.update(p, Game_time[level]);
-				p.update(canvas, wx[level], wy[level], u);
-				s1.update(canvas, p, wx[level], wy[level], dt, u, level);
-				projl1.update(canvas, p, s1, wx[level], wy[level], dt, u);
-				//aoe
-				if ((canvas.mouseButtonPressed(MouseLeft) && canvas.mouseButtonPressed(MouseRight)) || (canvas.mouseButtonPressed(MouseLeft) && canvas.keyPressed(VK_SPACE))) {
-					if (aoe.atk(canvas, s1, mousex, mousey, Game_time[level])) {
-						aoeatk = 1;
-					}
-				}
-				else if (canvas.keyPressed(VK_SPACE) || canvas.keyPressed('K')) {
-					if (aoe.atk(canvas, s1, p.cx, p.cy, Game_time[level])) {
-						aoeatk = 2;
-					}
-				}
-
-				// draw the frame
-				w1.draw(canvas, wx[level], wy[level]);
-				p.draw(canvas);
-				s1.draw(canvas);
-				projl1.draw(canvas);
-				if (canvas.mouseButtonPressed(MouseLeft)) {
-					aoe.draw(canvas, s1, mousex, mousey);
-				}
-				else if (canvas.keyPressed('J')) {
-					aoe.draw(canvas, s1, p.cx, p.cy);
-				}
-
-				if (aoeatk == 1 && aoetimer <= 0.1) {
-					aoe.atkdraw1(canvas, mousex, mousey);
-					aoetimer += dt;
-				}
-				else if (aoeatk == 2 && aoetimer <= 0.1) {
-					aoe.atkdraw1(canvas, p.cx, p.cy);
-					aoetimer += dt;
-				}
-				else {
-					aoeatk = 0;
-					aoetimer = 0;
-				}
-
-				Game_time[level] += dt;
-				if (Game_time[level] >= LEVELTIME[level]) {
-					cout << "LEVEL " << level << " CLEAR!" << endl;
-					if (level < LEVELNUM - 1) {
-						cout << "LEVEL " << level + 1 << " START!" << endl;
-					}
-					level++;
-				}
-			}
-
-
-
 			if (level > LEVELNUM - 1) { gameover = true; }// all level done 
+
+
+			//WASD Player move ,set speed with consider of the scale
+			w[level].collisionplayer(canvas, p, wx[level], wy[level], u);
+			s[level].pvn(p);
+			aoe.update(p, Game_time[level]);
+			p.update(canvas, wx[level], wy[level], u);
+			s[level].update(canvas, p, wx[level], wy[level], dt, u, level);
+			projl[level].update(canvas, p, s[level], wx[level], wy[level], dt, u);
+			//aoe
+			if ((canvas.mouseButtonPressed(MouseLeft) && canvas.mouseButtonPressed(MouseRight)) || (canvas.mouseButtonPressed(MouseLeft) && canvas.keyPressed(VK_SPACE))) {
+				if (aoe.atk(canvas, s[level], mousex, mousey, Game_time[level])) {
+					aoeatk = 1;
+				}
+			}
+			else if (canvas.keyPressed(VK_SPACE) || canvas.keyPressed('K')) {
+				if (aoe.atk(canvas, s[level], p.cx, p.cy, Game_time[level])) {
+					aoeatk = 2;
+				}
+			}
+			// draw the frame
+			w[level].draw(canvas, wx[level], wy[level]);
+			s[level].draw(canvas);
+			p.draw(canvas);
+			projl[level].draw(canvas);
+			if (canvas.mouseButtonPressed(MouseLeft)) {
+				aoe.draw(canvas, s[level], mousex, mousey);
+			}
+			else if (canvas.keyPressed('J')) {
+				aoe.draw(canvas, s[level], p.cx, p.cy);
+			}
+			if (aoeatk == 1 && aoetimer <= 0.1) {
+				aoe.atkdraw1(canvas, mousex, mousey);
+				aoetimer += dt;
+			}
+			else if (aoeatk == 2 && aoetimer <= 0.1) {
+				aoe.atkdraw1(canvas, p.cx, p.cy);
+				aoetimer += dt;
+			}
+			else {
+				aoeatk = 0;
+				aoetimer = 0;
+			}
+
+			Game_time[level] += dt;
+			if (Game_time[level] >= LEVELTIME[level]) {
+				cout << "LEVEL " << level << " CLEAR!" << endl;
+				if (level < LEVELNUM - 1) {
+					cout << "LEVEL " << level + 1 << " START!" << endl;
+				}
+				level++;
+			}
+
 
 			if (gameover == true) {
 				run = false;
@@ -1825,9 +1848,6 @@ int main() {
 
 				secondcount = 0;
 			}
-
-		}
-		else {
 
 		}
 
@@ -1869,3 +1889,114 @@ int main() {
 
 	//system("pause"); // prevent auto quit when game is over
 }
+
+/*
+if (level == 0) {
+	//WASD Player move ,set speed with consider of the scale
+	w[level].collisionplayer(canvas, p, wx[level], wy[level], u);
+	s[level].pvn(p);
+	aoe.update(p, Game_time[level]);
+	p.update(canvas, wx[level], wy[level], u);
+	s[level].update(canvas, p, wx[level], wy[level], dt, u, level);
+	projl[level].update(canvas, p, s[level], wx[level], wy[level], dt, u);
+	//aoe
+	if ((canvas.mouseButtonPressed(MouseLeft) && canvas.mouseButtonPressed(MouseRight)) || (canvas.mouseButtonPressed(MouseLeft) && canvas.keyPressed(VK_SPACE))) {
+		if (aoe.atk(canvas, s[level], mousex, mousey, Game_time[level])) {
+			aoeatk = 1;
+		}
+	}
+	else if (canvas.keyPressed(VK_SPACE) || canvas.keyPressed('K')) {
+		if (aoe.atk(canvas, s[level], p.cx, p.cy, Game_time[level])) {
+			aoeatk = 2;
+		}
+	}
+	// draw the frame
+	w[level].draw(canvas, wx[level], wy[level]);
+	s[level].draw(canvas);
+	p.draw(canvas);
+	projl[level].draw(canvas);
+	if (canvas.mouseButtonPressed(MouseLeft)) {
+		aoe.draw(canvas, s[level], mousex, mousey);
+	}
+	else if (canvas.keyPressed('J')) {
+		aoe.draw(canvas, s[level], p.cx, p.cy);
+	}
+	if (aoeatk == 1 && aoetimer <= 0.1) {
+		aoe.atkdraw1(canvas, mousex, mousey);
+		aoetimer += dt;
+	}
+	else if (aoeatk == 2 && aoetimer <= 0.1) {
+		aoe.atkdraw1(canvas, p.cx, p.cy);
+		aoetimer += dt;
+	}
+	else {
+		aoeatk = 0;
+		aoetimer = 0;
+	}
+
+
+
+	Game_time[level] += dt;
+	if (Game_time[level] >= LEVELTIME[level]) {
+		cout << "LEVEL " << level << " CLEAR!" << endl;
+		if (level < LEVELNUM - 1) {
+			cout << "LEVEL " << level + 1 << " START!" << endl;
+		}
+		level++;
+	}
+}
+else if (level == 1) {
+	w1.collisionplayer(canvas, p, wx[level], wy[level], u);
+	s1.pvn(p);
+	aoe.update(p, Game_time[level]);
+	p.update(canvas, wx[level], wy[level], u);
+	s1.update(canvas, p, wx[level], wy[level], dt, u, level);
+	projl1.update(canvas, p, s1, wx[level], wy[level], dt, u);
+	//aoe
+	if ((canvas.mouseButtonPressed(MouseLeft) && canvas.mouseButtonPressed(MouseRight)) || (canvas.mouseButtonPressed(MouseLeft) && canvas.keyPressed(VK_SPACE))) {
+		if (aoe.atk(canvas, s1, mousex, mousey, Game_time[level])) {
+			aoeatk = 1;
+		}
+	}
+	else if (canvas.keyPressed(VK_SPACE) || canvas.keyPressed('K')) {
+		if (aoe.atk(canvas, s1, p.cx, p.cy, Game_time[level])) {
+			aoeatk = 2;
+		}
+	}
+
+	// draw the frame
+	w1.draw(canvas, wx[level], wy[level]);
+	p.draw(canvas);
+	s1.draw(canvas);
+	projl1.draw(canvas);
+	if (canvas.mouseButtonPressed(MouseLeft)) {
+		aoe.draw(canvas, s1, mousex, mousey);
+	}
+	else if (canvas.keyPressed('J')) {
+		aoe.draw(canvas, s1, p.cx, p.cy);
+	}
+
+	if (aoeatk == 1 && aoetimer <= 0.1) {
+		aoe.atkdraw1(canvas, mousex, mousey);
+		aoetimer += dt;
+	}
+	else if (aoeatk == 2 && aoetimer <= 0.1) {
+		aoe.atkdraw1(canvas, p.cx, p.cy);
+		aoetimer += dt;
+	}
+	else {
+		aoeatk = 0;
+		aoetimer = 0;
+	}
+
+	Game_time[level] += dt;
+	if (Game_time[level] >= LEVELTIME[level]) {
+		cout << "LEVEL " << level << " CLEAR!" << endl;
+		if (level < LEVELNUM - 1) {
+			cout << "LEVEL " << level + 1 << " START!" << endl;
+		}
+		level++;
+	}
+}
+
+*/

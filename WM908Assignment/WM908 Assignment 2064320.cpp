@@ -948,10 +948,9 @@ public:
 
 	void projload(ifstream& load, int count, int group) {
 		if (group == 0) {
-			string head = "";
-			while (head != "PROJ" + to_string(count) + "ofgroup" + to_string(group)) {
-				load >> head;
-			}
+			string head;
+			load >> head;
+			
 			int proindex;
 			load >> proindex;
 			string filename = "Resources/playerpro.png";
@@ -971,10 +970,9 @@ public:
 			proj0.addend(proj);
 		}
 		else if (group == 1) {
-			string head = "";
-			while (head != "PROJ" + to_string(count) + "ofgroup" + to_string(group)) {
-				load >> head;
-			}
+			string head;
+			load >> head;
+			
 			int proindex;
 			load >> proindex;
 			string filename = "Resources/npcpro3.png";
@@ -997,10 +995,9 @@ public:
 	}
 
 	void load(ifstream& load) {
-		string head = "";
-		while (head != "PROJMA") {
-			load >> head;
-		}
+		string head;
+		load >> head;
+		
 		int size0, size1;
 		load >> timeElapsed0;
 		load >> size0;
@@ -1208,10 +1205,9 @@ public:
 	}
 
 	void load(ifstream& load) {
-		string head = "";
-		while (head != "AOE") {
-			load >> head;
-		}
+		string head;
+		load >> head;
+		
 		load >> aoer;
 		load >> lastatk;
 		load >> aoenum;
