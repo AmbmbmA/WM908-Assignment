@@ -10,7 +10,7 @@ using namespace GamesEngineeringBase;
 
 //game const
 const unsigned int LEVELNUM = 2; // total level number
-const unsigned int LEVELTIME[LEVELNUM] = { 5,120 }; //level time length in second
+const unsigned int LEVELTIME[LEVELNUM] = { 120,120 }; //level time length in second
 const bool LEVELMAPINF[LEVELNUM] = { true,false };//level map infinity
 const unsigned int HORIBOND = 50; // horizontal bondwidth for finitemap
 const unsigned int VERTIBOND = 50;
@@ -23,7 +23,7 @@ const int INMARGIN = 100; // range for the npc to spawn outside the cancas
 const int OUTMARGIN = 2000; // range for the npc to spawn outside the cancas
 const float SPAWNGAP = 1.0f; //initial spawn time gap
 const float SPAWNACC = 0.04f; // spawn accelerate gap
-const float MINSPAWNGAP[LEVELNUM] = { 0.4f , 0.2f }; // MIN spawn gap
+const float MINSPAWNGAP[LEVELNUM] = { 0.3f , 0.15f }; // MIN spawn gap
 const int MAXNUM = 30; // max number of NPC allow exist
 
 //character const
@@ -34,14 +34,14 @@ const int NPCSCORE[4] = { 10,20,30,40 };
 const int BASESCOREFORUP = 100;
 //health
 const unsigned int PLAYERMAXHEALTH[1] = { 3000 };
-const unsigned int NPCMAXHEALTH[4] = { 1000 , 2000 , 3000 , 4500 };
+const unsigned int NPCMAXHEALTH[4] = { 2000 , 3000 , 4000 , 5000 };
 //speed
 const float PLAYERSPEED[1] = { 60 };
 const float NPCSPEED[4] = { 50 , 40 , 30 , 0 };
-const int PROSPEED[2] = { 120, 20 };
+const int PROSPEED[2] = { 120, 25 };
 //atk
-const int CRASH = 1;
-const int PROJDAMAGE[2] = { 1500, 250 };
+const int CRASH = 2;
+const int PROJDAMAGE[2] = { 1000, 300 };
 const int PROJMAXT[2] = { 1500,3000 };
 const int AOEDAMAGE = 3000;
 const float AOECD = 5;
@@ -2059,5 +2059,5 @@ int main() {
 	if (FPS <= 0) { FPS = 0; }
 	cout << "Average FPS: " << FPS << endl;
 
-	//system("pause"); // prevent auto quit when game is over
+	system("pause"); // prevent auto quit when game is over
 }

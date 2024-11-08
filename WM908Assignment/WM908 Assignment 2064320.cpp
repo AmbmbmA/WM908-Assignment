@@ -10,7 +10,7 @@ using namespace GamesEngineeringBase;
 
 //game const
 const unsigned int LEVELNUM = 2; // total level number
-const unsigned int LEVELTIME[LEVELNUM] = { 5,120 }; //level time length in second
+const unsigned int LEVELTIME[LEVELNUM] = { 120,120 }; //level time length in second
 const bool LEVELMAPINF[LEVELNUM] = { true,false };//level map infinity
 const unsigned int HORIBOND = 50; // horizontal bondwidth for finitemap
 const unsigned int VERTIBOND = 50;
@@ -2059,5 +2059,5 @@ int main() {
 	if (FPS <= 0) { FPS = 0; }
 	cout << "Average FPS: " << FPS << endl;
 
-	//system("pause"); // prevent auto quit when game is over
+	system("pause"); // prevent auto quit when game is over
 }
