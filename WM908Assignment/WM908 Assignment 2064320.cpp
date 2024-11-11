@@ -13,24 +13,23 @@ const unsigned int LEVELNUM = 2; // total level number
 const unsigned int LEVELTIME[LEVELNUM] = { 120,120 }; //level time length in second
 const bool LEVELMAPINF[LEVELNUM] = { true,false };//level map infinity
 const unsigned int HORIBOND = 50; // horizontal bondwidth for finitemap
-const unsigned int VERTIBOND = 50;
-const unsigned int INGAMESHOW = 5; //time gap for in game show
-const unsigned int RESOURCENUM = 9; //default tileset size
-const float SCALE = 1; //scale of the window,with modified character size and speed
+const unsigned int VERTIBOND = 50; // vertial bondwidth for finitemap
+const unsigned int INGAMESHOW = 5; //time gap for in game display on console
+const unsigned int RESOURCENUM = 9; //default tileset size 
 
 //Spawn const
 const int INMARGIN = 100; // range for the npc to spawn outside the cancas
 const int OUTMARGIN = 2000; // range for the npc to spawn outside the cancas
 const float SPAWNGAP = 1.0f; //initial spawn time gap
-const float SPAWNACC = 0.04f; // spawn accelerate gap
-const float MINSPAWNGAP[LEVELNUM] = { 0.3f , 0.15f }; // MIN spawn gap
+const float SPAWNACC = 0.03f; // spawn accelerate gap
+const float MINSPAWNGAP[LEVELNUM] = { 0.3f , 0.2f }; // MIN spawn gap
 const int MAXNUM = 30; // max number of NPC allow exist
 
 //character const
 
-//score
+//scores
 const int MAXPLEVEL = 10;
-const int NPCSCORE[4] = { 10,20,30,40 };
+const int NPCSCORE[4] = { 20,30,40,60 };
 const int BASESCOREFORUP = 100;
 //health
 const unsigned int PLAYERMAXHEALTH[1] = { 3000 };
@@ -40,7 +39,7 @@ const float PLAYERSPEED[1] = { 60 };
 const float NPCSPEED[4] = { 50 , 40 , 30 , 0 };
 const int PROSPEED[2] = { 120, 25 };
 //atk
-const int CRASH = 2;
+const int CRASH = 1;
 const int PROJDAMAGE[2] = { 1000, 300 };
 const int PROJMAXT[2] = { 1500,3000 };
 const int AOEDAMAGE = 3000;
@@ -1155,7 +1154,8 @@ public:
 		}
 
 		if (cooling) {//check cd
-			if (gametime - lastatk >= cd) {
+
+			if (gametime - lastatk <= 0 || gametime - lastatk >= cd) {
 				cooling = false;
 			}
 		}
@@ -1692,7 +1692,6 @@ public:
 	}
 };
 
-
 bool fileexist(const string& filename) {
 	ifstream file(filename);
 	return file.good();
@@ -1711,11 +1710,11 @@ void savegame(int _slot, int& level, float* Game_time, int* wx, int* wy, world* 
 		save << Game_time[i] << endl;
 		save << wx[i] << endl;
 		save << wy[i] << endl;
+		s[i].save(save);
+		proj[i].save(save);
 	}
 
 	p.save(save);
-	s[level].save(save);
-	proj[level].save(save);
 	aoe.save(save);
 
 	save.close();
@@ -1742,12 +1741,11 @@ bool loadgame(int _slot, int& level, float* Game_time, int* wx, int* wy, world* 
 			load >> Game_time[i];
 			load >> wx[i];
 			load >> wy[i];
+			s[i].load(load);
+			proj[i].load(load);
 		}
 
-
 		p.load(load);
-		s[level].load(load);
-		proj[level].load(load);
 		aoe.load(load);
 
 		load.close();
@@ -1769,7 +1767,7 @@ int main() {
 
 	// draw the canvas
 	Window canvas;
-	canvas.create(1024 * SCALE, 768 * SCALE, "WM908 Assignment u2064320");
+	canvas.create(1024, 768, "WM908 Assignment u2064320");
 
 
 	// UI 
